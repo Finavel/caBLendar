@@ -196,6 +196,7 @@
             
             .header-wrapper { position: static; border: none; background: transparent; backdrop-filter: none; -webkit-backdrop-filter: none; }
             
+            /* Sticky Top Bar */
             .header-row-1 {
                 position: fixed;
                 top: 0;
@@ -215,6 +216,7 @@
                 will-change: transform;
             }
             
+            /* Scrolling Content Offset */
             .header-row-2 {
                 margin-top: 57px; 
                 display: flex;
@@ -483,21 +485,23 @@
             .date-number { font-size: 1.8rem; font-weight: 400; }
             .mobile-weekday { display: block; font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; font-weight: 600; margin-bottom: 2px; }
             
-            .day-content-area { gap: 6px; padding-top: 2px; }
+            .day-content-area { gap: 6px; padding-top: 2px; flex-grow: 1; min-width: 0; }
             .day-stats-grid { display: none; }
 
             .mobile-day-stats {
                 display: flex;
                 flex-direction: column;
                 justify-content: center;
-                gap: 2px;
-                font-size: 0.65rem;
+                align-items: center;
+                gap: 4px;
+                font-size: 0.75rem;
                 font-weight: 700;
-                padding: 0 8px;
-                border-right: 1px solid var(--glass-border);
+                padding: 0 4px 0 10px;
+                border-left: 1px solid var(--glass-border);
                 flex-shrink: 0;
+                width: 32px;
             }
-            .mobile-day-stats span { display: block; white-space: nowrap; }
+            .mobile-day-stats span { display: block; }
             .mobile-day-stats .ch { color: #70b5f9; }
             .mobile-day-stats .tt { color: #fff; }
             .mobile-day-stats .st { color: #69f0ae; }
@@ -677,7 +681,7 @@
     // Minimal status setting to avoid persistent UI spam
     const calSetStatus = (msg) => { $('cal-status-message').innerText = msg; };
     const calSleep = (ms) => new Promise(r => setTimeout(r, ms));
-    
+
     // LB State
     let calLbMode = 'chapters';
     let calLbData = { chapters: {}, started: {}, finished: {} };
@@ -838,10 +842,8 @@
         const currentCacheKey = `${calCurrentYear}_${calCurrentMonth}`;
         if (calGlobalCache[currentCacheKey]) { 
             calRenderUI(calGlobalCache[currentCacheKey]); 
-            calSetStatus(""); 
         } else { 
             calRenderUI(null); 
-            calSetStatus(""); 
         }
     }
 
@@ -1150,7 +1152,7 @@
         const currentUnix = Math.floor(calRealDate.getTime() / 1000);
         const endOfMonth = Math.min(endOfMonthRaw, currentUnix);
         
-        if (startOfMonth > endOfMonth) return []; 
+        if (startOfMonth >= endOfMonth) return []; 
         
         const query = `query ($userId: Int, $page: Int, $start: Int, $end: Int) { Page(page: $page, perPage: 50) { pageInfo { hasNextPage } activities(userId: $userId, type: MEDIA_LIST, createdAt_greater: $start, createdAt_lesser: $end, sort: ID_DESC) { ... on ListActivity { id createdAt progress status media { id type chapters episodes title { english userPreferred } coverImage { large } } } } } }`;
         let page = 1, hasNext = true, activities = [];
@@ -1306,15 +1308,15 @@
             let cached = await getMonthFromDB(currentCacheKey);
             let startOfFetch = Math.floor(new Date(calCurrentYear, calCurrentMonth, 1).getTime() / 1000);
             const currentUnix = Math.floor(calRealDate.getTime() / 1000);
+            
+            // Delta Sync: If we have a cached version with raw history, only fetch from the last sync unix
             let isDelta = false;
-
-            // Delta sync: ALWAYS use if cache has proper keys
             if (cached && cached.lastSyncUnix && cached.rawActivities && cached.officialDates) {
                 startOfFetch = cached.lastSyncUnix;
                 isDelta = true;
             }
 
-            calSetStatus(`Scanning activity feed...`); await calSleep(50);
+            calSetStatus(isDelta ? `Scanning for new activity...` : `Scanning activity feed...`); await calSleep(50);
             const rawActivities = await calFetchMonthActivities(userData.id, calCurrentYear, calCurrentMonth, startOfFetch);
             
             let combinedActivities = [];
@@ -1510,13 +1512,6 @@
                     <span class="date-number">${day}</span>
                     ${dayData.entriesList && dayData.entriesList.length > 1 ? `<div class="expand-icon">▼</div>` : ''}
                 </div>
-                ${!dayData.isFuture && hasEntries ? `
-                <div class="mobile-day-stats mobile-only">
-                    <span class="ch">${dayData.summary.chapters} Ch</span>
-                    <span class="tt">${dayData.summary.titles} Ti</span>
-                    <span class="st">${dayData.summary.started} St</span>
-                    <span class="fn">${dayData.summary.finished} Fi</span>
-                </div>` : ''}
                 <div class="day-content-area">
                     ${!dayData.isFuture && hasEntries ? `
                     <div class="day-stats-grid">
@@ -1530,6 +1525,13 @@
                     ${restEntriesHtml ? `<div class="entries-dropdown">${restEntriesHtml}</div>` : ''}
                     ${(!hasEntries && !dayData.isFuture) ? `<div class="empty-state-text show">Nothing planned</div>` : ''}
                 </div>
+                ${!dayData.isFuture && hasEntries ? `
+                <div class="mobile-day-stats mobile-only">
+                    <span class="ch">${dayData.summary.chapters}</span>
+                    <span class="tt">${dayData.summary.titles}</span>
+                    <span class="st">${dayData.summary.started}</span>
+                    <span class="fn">${dayData.summary.finished}</span>
+                </div>` : ''}
             `;
             
             dayDiv.innerHTML = html;
