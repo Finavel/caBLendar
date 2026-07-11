@@ -391,11 +391,11 @@
         .cal-entry-cover-wrapper { position: relative; flex-shrink: 0; display: flex; }
         .cal-entry-cover { width: 50px; height: 70px; object-fit: cover; border-radius: 6px; }
         
+        /* Updated Final Star Placement */
         .cal-heart-icon { 
             position: absolute; 
             top: -4px; 
             right: -4px; 
-            transform: translate(35%, -35%); 
             font-size: 18px; 
             color: #ffd27d; 
             text-shadow: 0 2px 4px rgba(0,0,0,0.8); 
@@ -475,6 +475,7 @@
             }
             .day-column.empty { opacity: 1; }
             .day-column.future { opacity: 0.5; }
+            
             .day-top-row { 
                 flex-direction: column; 
                 align-items: center; 
@@ -486,28 +487,29 @@
             .date-number { font-size: 1.8rem; font-weight: 400; }
             .mobile-weekday { display: block; font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; font-weight: 600; margin-bottom: 2px; }
             
-            .day-content-area { gap: 6px; padding-top: 2px; flex-grow: 1; min-width: 0; }
-            .day-stats-grid { display: none; }
-
             .mobile-day-stats {
                 display: flex;
                 flex-direction: column;
                 justify-content: center;
                 align-items: center;
-                gap: 4px;
+                gap: 6px;
                 font-size: 0.75rem;
                 font-weight: 700;
-                padding: 0 4px 0 10px;
+                padding: 0 4px;
                 border-left: 1px solid var(--glass-border);
                 flex-shrink: 0;
                 width: 32px;
                 box-sizing: border-box;
+                margin-right: 2px;
             }
             .mobile-day-stats span { display: block; white-space: nowrap; }
             .mobile-day-stats .ch { color: #70b5f9; }
             .mobile-day-stats .tt { color: #fff; }
             .mobile-day-stats .st { color: #69f0ae; }
             .mobile-day-stats .fn { color: #b39ddb; }
+
+            .day-content-area { gap: 6px; padding-top: 2px; flex-grow: 1; min-width: 0; }
+            .day-stats-grid { display: none; }
             
             .expand-icon { display: none !important; }
             
@@ -515,7 +517,7 @@
             .entries-dropdown { padding: 0; border: none; margin: 0; max-height: none; overflow: visible; padding-top: 6px; }
             .cal-entry-card { background: var(--panel); border-radius: 8px; margin: 0; padding: 8px; border: 1px solid transparent; transform: translateZ(0); will-change: transform; }
             
-            .empty-state-text.show { display: block; }
+            .empty-state-text.show { display: block; margin-left: 12px; }
             
             .cal-chart-container { display: none !important; }
             
@@ -1209,17 +1211,27 @@
             
             const createEntryIfMissing = (day) => { 
                 if (!data[day].entries[mId]) { 
-                    data[day].entries[mId] = { id: mId, type, title, coverUrl, chaptersRead: 0, isStarted: false, isCompleted: false, maxProgress: 0, totalSeriesChapters, officialSameDay: isSameDay, isReread: false }; 
+                    data[day].entries[mId] = { id: mId, type, title, coverUrl, chaptersRead: 0, isStarted: false, isCompleted: false, maxProgress: 0, totalSeriesChapters, officialSameDay: isSameDay, officialStartDay: false, isReread: false }; 
                 } 
             };
             
             if (entry.startedAt && entry.startedAt.year === year && entry.startedAt.month === month + 1 && entry.startedAt.day) {
                 const day = entry.startedAt.day;
-                if (!data[day].isFuture) { createEntryIfMissing(day); data[day].entries[mId].isStarted = true; data[day].entries[mId].officialSameDay = isSameDay; }
+                if (!data[day].isFuture) { 
+                    createEntryIfMissing(day); 
+                    data[day].entries[mId].isStarted = true; 
+                    data[day].entries[mId].officialSameDay = isSameDay; 
+                    data[day].entries[mId].officialStartDay = true;
+                }
             }
             if (entry.completedAt && entry.completedAt.year === year && entry.completedAt.month === month + 1 && entry.completedAt.day) {
                 const day = entry.completedAt.day;
-                if (!data[day].isFuture) { createEntryIfMissing(day); data[day].entries[mId].isCompleted = true; data[day].entries[mId].officialSameDay = isSameDay; data[day].entries[mId].totalSeriesChapters = Math.max(data[day].entries[mId].totalSeriesChapters, totalSeriesChapters); }
+                if (!data[day].isFuture) { 
+                    createEntryIfMissing(day); 
+                    data[day].entries[mId].isCompleted = true; 
+                    data[day].entries[mId].officialSameDay = isSameDay; 
+                    data[day].entries[mId].totalSeriesChapters = Math.max(data[day].entries[mId].totalSeriesChapters, totalSeriesChapters); 
+                }
             }
         });
         
@@ -1231,22 +1243,24 @@
             if (!data[day] || data[day].isFuture) return;
             const mId = act.media.id, type = act.media.type, title = act.media.title.english || act.media.title.userPreferred, progressStr = act.progress ? String(act.progress) : "", statusStr = (act.status || "").toLowerCase();
             
-            if (!stateTracker[mId]) stateTracker[mId] = { lastProgress: -1, hasStartedTracking: false, chaptersLoggedThisMonth: 0, wasStartedThisMonth: false };
+            if (!stateTracker[mId]) {
+                stateTracker[mId] = { lastProgress: -1, chaptersLoggedThisMonth: 0, wasStartedThisMonth: false, hasSeenExplicitProgress: false };
+            }
             if (!data[day].entries[mId]) { 
-                data[day].entries[mId] = { id: mId, type, title, coverUrl: act.media.coverImage.large, chaptersRead: 0, isStarted: false, isCompleted: false, maxProgress: 0, totalSeriesChapters: (type === 'ANIME' ? act.media.episodes : act.media.chapters) || 0, officialSameDay: false, isReread: false, activityId: act.id }; 
+                data[day].entries[mId] = { id: mId, type, title, coverUrl: act.media.coverImage.large, chaptersRead: 0, isStarted: false, isCompleted: false, maxProgress: 0, totalSeriesChapters: (type === 'ANIME' ? act.media.episodes : act.media.chapters) || 0, officialSameDay: false, officialStartDay: false, isReread: false, activityId: act.id }; 
             }
             
             const dayEntry = data[day].entries[mId];
             dayEntry.activityId = act.id;
             
-            let isFirstTrackThisMonth = !stateTracker[mId].hasStartedTracking;
             if (statusStr.includes('started') || (statusStr.includes('added') && statusStr.includes('reading')) || (statusStr.includes('added') && statusStr.includes('watching'))) {
                 dayEntry.isStarted = true;
                 stateTracker[mId].wasStartedThisMonth = true;
             }
             if (statusStr.includes('completed')) dayEntry.isCompleted = true;
             
-            let isGenuinelyNew = dayEntry.isStarted && isFirstTrackThisMonth;
+            let isGenuinelyNew = (stateTracker[mId].wasStartedThisMonth || dayEntry.officialStartDay) && !stateTracker[mId].hasSeenExplicitProgress;
+            
             let chsAdded = 0, currentProgress = -1;
             let rangeMatch = progressStr.match(/(\d+)\s*-\s*(\d+)/), singleMatch = progressStr.match(/^(\d+)$/);
             
@@ -1274,7 +1288,9 @@
                 let txtSingle = statusStr.match(/(?:chapter|episode)s?\s+(\d+)/i); 
                 if (txtSingle) { 
                     currentProgress = parseInt(txtSingle[1]); 
-                    if (stateTracker[mId].lastProgress !== -1 && currentProgress > stateTracker[mId].lastProgress) {
+                    if (isGenuinelyNew && currentProgress > 0) {
+                        chsAdded = currentProgress;
+                    } else if (stateTracker[mId].lastProgress !== -1 && currentProgress > stateTracker[mId].lastProgress) {
                         chsAdded = currentProgress - stateTracker[mId].lastProgress;
                     } else {
                         chsAdded = 1;
@@ -1283,7 +1299,9 @@
                     let total = dayEntry.totalSeriesChapters || 0;
                     if (total > 0) {
                         currentProgress = total;
-                        if (stateTracker[mId].lastProgress !== -1 && total >= stateTracker[mId].lastProgress) {
+                        if (isGenuinelyNew) {
+                            chsAdded = total;
+                        } else if (stateTracker[mId].lastProgress !== -1 && total >= stateTracker[mId].lastProgress) {
                             chsAdded = total - stateTracker[mId].lastProgress;
                         } else if (stateTracker[mId].wasStartedThisMonth) {
                             let remaining = total - stateTracker[mId].chaptersLoggedThisMonth;
@@ -1295,16 +1313,18 @@
                 }
             }
 
-            if (dayEntry.isStarted && currentProgress > 0 && isFirstTrackThisMonth) {
+            if (dayEntry.isStarted && currentProgress > 0 && !stateTracker[mId].hasSeenExplicitProgress) {
                 chsAdded = Math.max(chsAdded, currentProgress);
             }
             
             dayEntry.maxProgress = Math.max(dayEntry.maxProgress, currentProgress); 
             dayEntry.chaptersRead += chsAdded;
             
+            if (currentProgress > 0) {
+                stateTracker[mId].hasSeenExplicitProgress = true;
+            }
             if (currentProgress !== -1) stateTracker[mId].lastProgress = currentProgress;
             stateTracker[mId].chaptersLoggedThisMonth += chsAdded;
-            stateTracker[mId].hasStartedTracking = true;
         });
         
         let mangaMonthlyTotal = {};
@@ -1315,20 +1335,6 @@
             
             titlesToday.forEach(e => {
                 if (!mangaMonthlyTotal[e.id]) mangaMonthlyTotal[e.id] = 0;
-                
-                if (e.isStarted && e.maxProgress > 0) {
-                    e.chaptersRead = Math.max(e.chaptersRead, e.maxProgress);
-                }
-                
-                if (e.isCompleted && e.totalSeriesChapters > 0) {
-                    if (e.isStarted && e.officialSameDay) {
-                        e.chaptersRead = Math.max(e.chaptersRead, e.totalSeriesChapters);
-                    } else if (mangaMonthlyTotal[e.id] > 0 && mangaMonthlyTotal[e.id] < e.totalSeriesChapters) {
-                        e.chaptersRead = Math.max(e.chaptersRead, e.totalSeriesChapters - mangaMonthlyTotal[e.id]);
-                    }
-                }
-                
-                if (e.chaptersRead === 0 && (e.isStarted || e.isCompleted)) e.chaptersRead = 1;
                 
                 mangaMonthlyTotal[e.id] += e.chaptersRead;
                 
@@ -1374,7 +1380,7 @@
                 isDelta = true;
             }
 
-            calSetStatus(`Scanning activity feed...`); await calSleep(50);
+            calSetStatus(isDelta ? `Scanning for new activity...` : `Scanning activity feed...`); await calSleep(50);
             const rawActivities = await calFetchMonthActivities(userData.id, calCurrentYear, calCurrentMonth, startOfFetch);
             
             let combinedActivities = [];
@@ -1544,12 +1550,27 @@
             const renderEntry = (e, dx) => {
                 const cA = e.activityId ? `onclick="window.open('https://anilist.co/activity/${e.activityId}','_blank')"` : (e.id ? `onclick="window.open('https://anilist.co/${e.type === 'ANIME' ? 'anime' : 'manga'}/${e.id}','_blank')"` : '');
                 let u1 = e.type === 'ANIME' ? 'Ep' : 'Ch', u2 = e.type === 'ANIME' ? 'Eps' : 'Chs', rn = '';
-                if (e.chaptersRead > 0 && e.maxProgress > 0) {
-                    let st = e.maxProgress - e.chaptersRead + 1;
-                    if (e.chaptersRead === 1) rn = `<br><span style="color:#ccc;font-size:10px;font-style:normal;display:block;margin-top:2px;line-height:1;">${u1} ${e.maxProgress}</span>`;
-                    else rn = `<br><span style="color:#ccc;font-size:10px;font-style:normal;display:block;margin-top:2px;line-height:1;">${u1} ${Math.max(1, st)}-${e.maxProgress}</span>`;
+                let mainLabel = '';
+
+                if (e.chaptersRead === 0) {
+                    if (e.isStarted && !e.isCompleted) {
+                        mainLabel = `<em style="cursor:text; font-size: 11px;" title="Starting Date">Starting Date</em>`;
+                    } else if (e.isCompleted) {
+                        mainLabel = `<em style="cursor:text; font-size: 11px;" title="Completed">Completed</em>`;
+                    } else {
+                        mainLabel = `<em style="cursor:text; font-size: 11px;">Logged</em>`;
+                    }
+                } else {
+                    mainLabel = `<em onclick="event.stopPropagation();calEditChapters('${calCurrentYear}_${calCurrentMonth}',${dx},'${e.id}',event)" style="cursor:text;" title="Click to manually edit chapters">+${e.chaptersRead} ${e.chaptersRead === 1 ? u1 : u2}</em>`;
+                    
+                    if (e.maxProgress > 0) {
+                        let st = e.maxProgress - e.chaptersRead + 1;
+                        if (e.chaptersRead === 1) rn = `<br><span style="color:#ccc;font-size:10px;font-style:normal;display:block;margin-top:2px;line-height:1;">${u1} ${e.maxProgress}</span>`;
+                        else rn = `<br><span style="color:#ccc;font-size:10px;font-style:normal;display:block;margin-top:2px;line-height:1;">${u1} ${Math.max(1, st)}-${e.maxProgress}</span>`;
+                    }
                 }
-                return `<div class="cal-entry-card ${e.id || e.activityId ? 'clickable' : ''}" ${cA}><div class="cal-entry-cover-wrapper">${e.isCompleted ? `<div class="cal-heart-icon" title="Finished Today">✦</div>` : ''}<img src="${e.coverUrl}" alt="Cover" class="cal-entry-cover" loading="lazy"></div><div class="cal-entry-details"><span class="cal-entry-title ${e.isStarted ? 'started' : ''}">${e.title}</span><span class="cal-entry-chapter ${e.type === 'ANIME' ? 'anime' : ''} ${e.isReread ? 'reread' : ''}"><em onclick="event.stopPropagation();calEditChapters('${calCurrentYear}_${calCurrentMonth}',${dx},'${e.id}',event)" style="cursor:text;" title="Click to manually edit chapters">+${e.chaptersRead} ${e.chaptersRead === 1 ? u1 : u2}</em>${rn}</span></div></div>`;
+
+                return `<div class="cal-entry-card ${e.id || e.activityId ? 'clickable' : ''}" ${cA}><div class="cal-entry-cover-wrapper">${e.isCompleted ? `<div class="cal-heart-icon" title="Finished Today">✦</div>` : ''}<img src="${e.coverUrl}" alt="Cover" class="cal-entry-cover" loading="lazy"></div><div class="cal-entry-details"><span class="cal-entry-title ${e.isStarted ? 'started' : ''}">${e.title}</span><span class="cal-entry-chapter ${e.type === 'ANIME' ? 'anime' : ''} ${e.isReread ? 'reread' : ''}">${mainLabel}${rn}</span></div></div>`;
             };
 
             let firstEntryHtml = '';
@@ -1568,13 +1589,6 @@
                     <span class="date-number">${day}</span>
                     ${dayData.entriesList && dayData.entriesList.length > 1 ? `<div class="expand-icon">▼</div>` : ''}
                 </div>
-                ${!dayData.isFuture && hasEntries ? `
-                <div class="mobile-day-stats mobile-only">
-                    <span class="ch">${dayData.summary.chapters}</span>
-                    <span class="tt">${dayData.summary.titles}</span>
-                    <span class="st">${dayData.summary.started}</span>
-                    <span class="fn">${dayData.summary.finished}</span>
-                </div>` : ''}
                 <div class="day-content-area">
                     ${!dayData.isFuture && hasEntries ? `
                     <div class="day-stats-grid">
@@ -1588,6 +1602,13 @@
                     ${restEntriesHtml ? `<div class="entries-dropdown">${restEntriesHtml}</div>` : ''}
                     ${(!hasEntries && !dayData.isFuture) ? `<div class="empty-state-text show">Nothing planned</div>` : ''}
                 </div>
+                ${!dayData.isFuture && hasEntries ? `
+                <div class="mobile-day-stats mobile-only">
+                    <span class="ch">${dayData.summary.chapters}</span>
+                    <span class="tt">${dayData.summary.titles}</span>
+                    <span class="st">${dayData.summary.started}</span>
+                    <span class="fn">${dayData.summary.finished}</span>
+                </div>` : ''}
             `;
             
             dayDiv.innerHTML = html;
