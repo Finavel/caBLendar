@@ -289,7 +289,7 @@
 
         .workspace { padding: 24px; max-width: 1600px; margin: 0 auto; }
 
-        /* Stats Banner */
+        /* Stats Banner - Spaced Out on Desktop */
         .monthly-stats-banner {
             display: flex;
             flex-wrap: wrap;
@@ -395,6 +395,7 @@
             position: absolute; 
             top: -4px; 
             right: -4px; 
+            transform: translate(35%, -35%); 
             font-size: 18px; 
             color: #ffd27d; 
             text-shadow: 0 2px 4px rgba(0,0,0,0.8); 
@@ -500,8 +501,9 @@
                 border-left: 1px solid var(--glass-border);
                 flex-shrink: 0;
                 width: 32px;
+                box-sizing: border-box;
             }
-            .mobile-day-stats span { display: block; }
+            .mobile-day-stats span { display: block; white-space: nowrap; }
             .mobile-day-stats .ch { color: #70b5f9; }
             .mobile-day-stats .tt { color: #fff; }
             .mobile-day-stats .st { color: #69f0ae; }
@@ -574,6 +576,7 @@
                 </button>
                 <div id="ei-dropdown" class="glass">
                     <button onclick="calInitiateExport(); toggleEIMenu(event)">Export</button>
+                    <!-- Improved mobile import compatibility with label connection -->
                     <label for="import-file" class="fetch-btn" style="border-radius:0; border:none; width:100%; margin:0; cursor:pointer; text-align:left; justify-content:flex-start;">Import</label>
                     <input type="file" id="import-file" accept=".json,application/json,text/plain" class="hidden-file-input" onchange="calImportData(event); $('ei-dropdown').style.display='none'">
                 </div>
@@ -842,8 +845,10 @@
         const currentCacheKey = `${calCurrentYear}_${calCurrentMonth}`;
         if (calGlobalCache[currentCacheKey]) { 
             calRenderUI(calGlobalCache[currentCacheKey]); 
+            calSetStatus(""); 
         } else { 
             calRenderUI(null); 
+            calSetStatus(""); 
         }
     }
 
@@ -1226,7 +1231,7 @@
             if (!data[day] || data[day].isFuture) return;
             const mId = act.media.id, type = act.media.type, title = act.media.title.english || act.media.title.userPreferred, progressStr = act.progress ? String(act.progress) : "", statusStr = (act.status || "").toLowerCase();
             
-            if (!stateTracker[mId]) stateTracker[mId] = { lastProgress: -1 };
+            if (!stateTracker[mId]) stateTracker[mId] = { lastProgress: -1, hasStartedTracking: false, chaptersLoggedThisMonth: 0, wasStartedThisMonth: false };
             if (!data[day].entries[mId]) { 
                 data[day].entries[mId] = { id: mId, type, title, coverUrl: act.media.coverImage.large, chaptersRead: 0, isStarted: false, isCompleted: false, maxProgress: 0, totalSeriesChapters: (type === 'ANIME' ? act.media.episodes : act.media.chapters) || 0, officialSameDay: false, isReread: false, activityId: act.id }; 
             }
@@ -1234,27 +1239,72 @@
             const dayEntry = data[day].entries[mId];
             dayEntry.activityId = act.id;
             
-            if (statusStr.includes('started') || (statusStr.includes('added') && statusStr.includes('reading')) || (statusStr.includes('added') && statusStr.includes('watching'))) dayEntry.isStarted = true;
+            let isFirstTrackThisMonth = !stateTracker[mId].hasStartedTracking;
+            if (statusStr.includes('started') || (statusStr.includes('added') && statusStr.includes('reading')) || (statusStr.includes('added') && statusStr.includes('watching'))) {
+                dayEntry.isStarted = true;
+                stateTracker[mId].wasStartedThisMonth = true;
+            }
             if (statusStr.includes('completed')) dayEntry.isCompleted = true;
             
+            let isGenuinelyNew = dayEntry.isStarted && isFirstTrackThisMonth;
             let chsAdded = 0, currentProgress = -1;
             let rangeMatch = progressStr.match(/(\d+)\s*-\s*(\d+)/), singleMatch = progressStr.match(/^(\d+)$/);
             
-            if (rangeMatch) { chsAdded = parseInt(rangeMatch[2]) - parseInt(rangeMatch[1]) + 1; currentProgress = parseInt(rangeMatch[2]); }
+            if (rangeMatch) { 
+                currentProgress = parseInt(rangeMatch[2]); 
+                if (isGenuinelyNew && currentProgress > 0) {
+                    chsAdded = currentProgress; 
+                } else if (stateTracker[mId].lastProgress !== -1 && currentProgress > stateTracker[mId].lastProgress) {
+                    chsAdded = currentProgress - stateTracker[mId].lastProgress;
+                } else {
+                    chsAdded = parseInt(rangeMatch[2]) - parseInt(rangeMatch[1]) + 1; 
+                }
+            }
             else if (singleMatch) { 
                 currentProgress = parseInt(singleMatch[1]); 
-                if (stateTracker[mId].lastProgress !== -1) { 
-                    if (currentProgress > stateTracker[mId].lastProgress) chsAdded = currentProgress - stateTracker[mId].lastProgress; 
-                } else { chsAdded = 1; } 
+                if (isGenuinelyNew && currentProgress > 0) {
+                    chsAdded = currentProgress;
+                } else if (stateTracker[mId].lastProgress !== -1 && currentProgress > stateTracker[mId].lastProgress) { 
+                    chsAdded = currentProgress - stateTracker[mId].lastProgress; 
+                } else { 
+                    chsAdded = 1; 
+                } 
             }
             else if (progressStr === "") { 
                 let txtSingle = statusStr.match(/(?:chapter|episode)s?\s+(\d+)/i); 
-                if (txtSingle) { chsAdded = 1; currentProgress = parseInt(txtSingle[1]); } 
+                if (txtSingle) { 
+                    currentProgress = parseInt(txtSingle[1]); 
+                    if (stateTracker[mId].lastProgress !== -1 && currentProgress > stateTracker[mId].lastProgress) {
+                        chsAdded = currentProgress - stateTracker[mId].lastProgress;
+                    } else {
+                        chsAdded = 1;
+                    }
+                } else if (statusStr.includes('completed')) {
+                    let total = dayEntry.totalSeriesChapters || 0;
+                    if (total > 0) {
+                        currentProgress = total;
+                        if (stateTracker[mId].lastProgress !== -1 && total >= stateTracker[mId].lastProgress) {
+                            chsAdded = total - stateTracker[mId].lastProgress;
+                        } else if (stateTracker[mId].wasStartedThisMonth) {
+                            let remaining = total - stateTracker[mId].chaptersLoggedThisMonth;
+                            chsAdded = Math.max(1, remaining);
+                        } else {
+                            chsAdded = 1;
+                        }
+                    }
+                }
+            }
+
+            if (dayEntry.isStarted && currentProgress > 0 && isFirstTrackThisMonth) {
+                chsAdded = Math.max(chsAdded, currentProgress);
             }
             
             dayEntry.maxProgress = Math.max(dayEntry.maxProgress, currentProgress); 
             dayEntry.chaptersRead += chsAdded;
+            
             if (currentProgress !== -1) stateTracker[mId].lastProgress = currentProgress;
+            stateTracker[mId].chaptersLoggedThisMonth += chsAdded;
+            stateTracker[mId].hasStartedTracking = true;
         });
         
         let mangaMonthlyTotal = {};
@@ -1265,12 +1315,21 @@
             
             titlesToday.forEach(e => {
                 if (!mangaMonthlyTotal[e.id]) mangaMonthlyTotal[e.id] = 0;
-                if (e.chaptersRead === 0 && (e.isStarted || e.isCompleted)) e.chaptersRead = 1;
-                if (e.isStarted && e.isCompleted && e.officialSameDay && e.totalSeriesChapters > 0) { 
-                    if (mangaMonthlyTotal[e.id] < e.totalSeriesChapters) { e.chaptersRead = e.totalSeriesChapters - mangaMonthlyTotal[e.id]; } 
-                } else if (e.isStarted) { 
-                    if (e.maxProgress > mangaMonthlyTotal[e.id]) { e.chaptersRead = Math.max(e.chaptersRead, e.maxProgress - mangaMonthlyTotal[e.id]); } 
+                
+                if (e.isStarted && e.maxProgress > 0) {
+                    e.chaptersRead = Math.max(e.chaptersRead, e.maxProgress);
                 }
+                
+                if (e.isCompleted && e.totalSeriesChapters > 0) {
+                    if (e.isStarted && e.officialSameDay) {
+                        e.chaptersRead = Math.max(e.chaptersRead, e.totalSeriesChapters);
+                    } else if (mangaMonthlyTotal[e.id] > 0 && mangaMonthlyTotal[e.id] < e.totalSeriesChapters) {
+                        e.chaptersRead = Math.max(e.chaptersRead, e.totalSeriesChapters - mangaMonthlyTotal[e.id]);
+                    }
+                }
+                
+                if (e.chaptersRead === 0 && (e.isStarted || e.isCompleted)) e.chaptersRead = 1;
+                
                 mangaMonthlyTotal[e.id] += e.chaptersRead;
                 
                 if (e.type !== 'ANIME') {
@@ -1309,21 +1368,19 @@
             let startOfFetch = Math.floor(new Date(calCurrentYear, calCurrentMonth, 1).getTime() / 1000);
             const currentUnix = Math.floor(calRealDate.getTime() / 1000);
             
-            // Delta Sync: If we have a cached version with raw history, only fetch from the last sync unix
             let isDelta = false;
             if (cached && cached.lastSyncUnix && cached.rawActivities && cached.officialDates) {
                 startOfFetch = cached.lastSyncUnix;
                 isDelta = true;
             }
 
-            calSetStatus(isDelta ? `Scanning for new activity...` : `Scanning activity feed...`); await calSleep(50);
+            calSetStatus(`Scanning activity feed...`); await calSleep(50);
             const rawActivities = await calFetchMonthActivities(userData.id, calCurrentYear, calCurrentMonth, startOfFetch);
             
             let combinedActivities = [];
             let combinedOfficialDates = [];
 
             if (isDelta) {
-                // Deduplicate activities using Map
                 let actMap = new Map();
                 cached.rawActivities.forEach(a => actMap.set(a.id, a));
                 rawActivities.forEach(a => actMap.set(a.id, a));
@@ -1336,7 +1393,6 @@
                     newOfficialDates = await calFetchOfficialListDates(userData.id, uniqueMediaIds);
                 }
                 
-                // Deduplicate dates using Map
                 let odMap = new Map();
                 cached.officialDates.forEach(d => odMap.set(d.media.id, d));
                 newOfficialDates.forEach(d => odMap.set(d.media.id, d));
@@ -1512,6 +1568,13 @@
                     <span class="date-number">${day}</span>
                     ${dayData.entriesList && dayData.entriesList.length > 1 ? `<div class="expand-icon">▼</div>` : ''}
                 </div>
+                ${!dayData.isFuture && hasEntries ? `
+                <div class="mobile-day-stats mobile-only">
+                    <span class="ch">${dayData.summary.chapters}</span>
+                    <span class="tt">${dayData.summary.titles}</span>
+                    <span class="st">${dayData.summary.started}</span>
+                    <span class="fn">${dayData.summary.finished}</span>
+                </div>` : ''}
                 <div class="day-content-area">
                     ${!dayData.isFuture && hasEntries ? `
                     <div class="day-stats-grid">
@@ -1525,13 +1588,6 @@
                     ${restEntriesHtml ? `<div class="entries-dropdown">${restEntriesHtml}</div>` : ''}
                     ${(!hasEntries && !dayData.isFuture) ? `<div class="empty-state-text show">Nothing planned</div>` : ''}
                 </div>
-                ${!dayData.isFuture && hasEntries ? `
-                <div class="mobile-day-stats mobile-only">
-                    <span class="ch">${dayData.summary.chapters}</span>
-                    <span class="tt">${dayData.summary.titles}</span>
-                    <span class="st">${dayData.summary.started}</span>
-                    <span class="fn">${dayData.summary.finished}</span>
-                </div>` : ''}
             `;
             
             dayDiv.innerHTML = html;
