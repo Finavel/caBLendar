@@ -1,0 +1,1931 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>caBLendar</title>
+    <!-- Tab Icon -->
+    <link rel="icon" type="image/png" href="Inspired.png">
+    
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        :root {
+            --bg: #1c1d30;
+            --panel: rgba(52, 53, 79, 0.7);
+            --inner: rgba(52, 53, 79, 0.5);
+            --text: #e3e5e8;
+            --text-muted: #9fadbd;
+            --highlight: #fff;
+            --accent: #f39c12;
+            --glass-border: rgba(255, 255, 255, 0.08);
+            --glass-shadow: 0 4px 16px 0 rgba(0, 0, 0, 0.2);
+            color-scheme: dark;
+        }
+
+        body {
+            background: var(--bg);
+            color: var(--text);
+            font-family: 'Inter', -apple-system, sans-serif;
+            margin: 0;
+            padding: 0;
+            min-height: 100vh;
+            overflow-x: hidden;
+            transition: background .3s, color .3s;
+        }
+
+        .glass {
+            background: var(--panel);
+            border: 1px solid var(--glass-border);
+            box-shadow: var(--glass-shadow);
+            backdrop-filter: blur(8px) saturate(150%);
+            -webkit-backdrop-filter: blur(8px) saturate(150%);
+            transition: background .3s ease;
+        }
+
+        /* Responsive Header System */
+        .header-wrapper {
+            background: rgba(0, 0, 0, 0.4);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(16px) saturate(180%);
+            -webkit-backdrop-filter: blur(16px) saturate(180%);
+        }
+
+        .mobile-only { display: none !important; }
+        .desktop-only { display: flex !important; }
+
+        .navbar-left {
+            display: flex;
+            align-items: center;
+        }
+
+        .navbar-logo-icon {
+            font-size: 26px;
+            font-weight: bold;
+            color: var(--accent);
+            letter-spacing: 1px;
+            display: flex;
+            gap: 6px;
+            cursor: pointer;
+            position: relative;
+            line-height: 1;
+        }
+
+        .braille-theme-select {
+            position: absolute;
+            inset: 0;
+            opacity: 0;
+            width: 100%;
+            height: 100%;
+            cursor: pointer;
+            appearance: none;
+            -webkit-appearance: none;
+            border: none;
+            z-index: 10;
+        }
+
+        input[type="text"] {
+            appearance: none;
+            background: rgba(0, 0, 0, 0.4);
+            border: 1px solid var(--glass-border);
+            color: var(--highlight);
+            padding: 0 16px;
+            border-radius: 18px;
+            outline: none;
+            font-size: 14px;
+            transition: .2s;
+            height: 36px;
+            box-sizing: border-box;
+        }
+
+        input:focus {
+            border-color: var(--accent);
+            background: rgba(0, 0, 0, 0.6);
+        }
+
+        .fetch-btn {
+            background: rgba(0, 0, 0, 0.4);
+            color: var(--highlight);
+            border: 1px solid var(--glass-border);
+            font-size: 14px;
+            font-weight: bold;
+            cursor: pointer;
+            padding: 0 16px;
+            height: 36px;
+            border-radius: 18px;
+            transition: .2s;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            box-sizing: border-box;
+            white-space: nowrap;
+        }
+
+        .fetch-btn:hover {
+            background: var(--accent);
+            color: #000;
+            border-color: var(--accent);
+        }
+
+        .icon-btn-header {
+            padding: 0 10px;
+            height: 36px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .cal-nav-btn {
+            background: none;
+            border: none;
+            color: var(--text);
+            font-size: 1.2rem;
+            cursor: pointer;
+            padding: 5px;
+            transition: .2s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .cal-nav-btn:hover { color: var(--accent); }
+        .month-label { font-weight:700; font-size:14px; color:var(--highlight); min-width:110px; text-align:center; cursor:pointer; padding:0 4px; }
+
+        /* Desktop Header Layout */
+        @media (min-width: 769px) {
+            .header-wrapper {
+                position: sticky;
+                top: 0;
+                z-index: 100;
+                height: 60px;
+                display: flex;
+                align-items: center;
+            }
+            .header-row-1 {
+                width: 100%;
+                padding: 0 24px;
+                display: flex;
+                align-items: center;
+            }
+            .header-row-2 {
+                position: absolute;
+                left: 50%;
+                transform: translateX(-50%);
+                display: flex;
+                align-items: center;
+            }
+            .nav-controls-group {
+                display: flex;
+                align-items: center;
+                gap: 12px;
+            }
+            .desktop-month-nav {
+                display: flex;
+                align-items: center;
+                gap: 4px;
+                background: rgba(0,0,0,0.15);
+                border: 1px solid var(--glass-border);
+                padding: 0 8px;
+                border-radius: 18px;
+                height: 36px;
+            }
+        }
+
+        /* Mobile Header Layout */
+        @media (max-width: 768px) {
+            .mobile-only { display: flex !important; }
+            .desktop-only { display: none !important; }
+            
+            .header-wrapper { position: static; border: none; background: transparent; backdrop-filter: none; -webkit-backdrop-filter: none; }
+            
+            /* Sticky Top Bar */
+            .header-row-1 {
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100%;
+                z-index: 1000;
+                box-sizing: border-box;
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                padding: 10px 16px;
+                background: rgba(20, 20, 30, 0.98);
+                backdrop-filter: blur(8px);
+                -webkit-backdrop-filter: blur(8px);
+                border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+                transform: translateZ(0); 
+                will-change: transform;
+            }
+            
+            /* Scrolling Content Offset */
+            .header-row-2 {
+                margin-top: 57px; 
+                display: flex;
+                padding: 12px 16px;
+                background: rgba(0,0,0,0.2);
+            }
+            
+            .nav-controls-group {
+                display: flex;
+                align-items: center;
+                gap: 8px;
+                width: 100%;
+            }
+            .mobile-center-month {
+                display: flex;
+                align-items: center;
+                gap: 4px;
+                background: rgba(0,0,0,0.3);
+                border-radius: 18px;
+                padding: 0 4px;
+                height: 36px;
+            }
+            #cal-username { width: 90px; }
+            #cal-title-search { flex-grow: 1; min-width: 0; }
+        }
+
+        /* Export/Import Dropdown */
+        #ei-dropdown {
+            position: absolute;
+            top: calc(100% + 8px);
+            right: 0;
+            display: none;
+            flex-direction: column;
+            border-radius: 8px;
+            z-index: 1000;
+            overflow: hidden;
+            border: 1px solid var(--glass-border);
+            box-shadow: 0 4px 16px rgba(0,0,0,0.8);
+            min-width: 120px;
+            background: var(--panel);
+        }
+        #ei-dropdown button, #ei-dropdown label {
+            background: transparent;
+            color: var(--highlight);
+            border: none;
+            padding: 12px 16px;
+            text-align: left;
+            cursor: pointer;
+            font-size: 13px;
+            font-weight: 600;
+            font-family: 'Inter', sans-serif;
+            margin: 0;
+            display: block;
+            width: 100%;
+            box-sizing: border-box;
+            transition: .2s;
+        }
+        #ei-dropdown button:hover, #ei-dropdown label:hover {
+            background: var(--accent);
+            color: #000;
+        }
+        
+        .hidden-file-input {
+            opacity: 0;
+            position: absolute;
+            left: -9999px;
+            width: 1px;
+            height: 1px;
+        }
+
+        .workspace { padding: 24px; max-width: 1600px; margin: 0 auto; }
+
+        /* Stats Banner - Spaced Out on Desktop */
+        .monthly-stats-banner {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 16px;
+            justify-content: center;
+            align-items: center;
+            padding: 16px 24px;
+            border-radius: 12px;
+            margin: 0 auto 24px auto;
+            max-width: 700px; 
+        }
+
+        .stat-item { text-align: center; flex: 1 1 65px; }
+        .stat-value { font-size: 1.4rem; font-weight: 800; color: var(--highlight); }
+        .stat-value.chapters { color: #70b5f9; }
+        .stat-value.titles, .stat-value.alltime { color: #fff; }
+        .stat-value.started { color: #69f0ae; }
+        .stat-value.finished { color: #b39ddb; }
+        .stat-label { font-size: .65rem; text-transform: uppercase; letter-spacing: .5px; margin-top: 2px; color: var(--text-muted); }
+        .stats-divider { width: 2px; height: 30px; background: var(--glass-border); border-radius: 2px; margin: 0 8px; }
+
+        /* Calendar Grid */
+        .calendar-grid {
+            display: grid;
+            grid-template-columns: repeat(7, minmax(0, 1fr));
+            gap: 10px;
+            width: 100%;
+        }
+
+        .weekday-header {
+            text-align: center;
+            font-weight: 600;
+            font-size: .8rem;
+            text-transform: uppercase;
+            color: var(--text-muted);
+            padding-bottom: 5px;
+        }
+
+        .day-column {
+            border-radius: 10px;
+            display: flex;
+            flex-direction: column;
+            min-width: 0;
+            transition: border-color .2s ease, background .2s ease;
+        }
+
+        .day-column.has-entries { cursor: pointer; }
+        .day-column.has-entries:hover { border-color: var(--accent); background: var(--inner); }
+        .day-column.empty { opacity: .5; cursor: default; }
+        .day-column.future { background: rgba(0, 0, 0, 0.1); border-color: transparent; opacity: .3; }
+
+        .day-top-row { display: flex; justify-content: space-between; align-items: center; padding: 12px 12px 4px 12px; pointer-events: none; }
+        .date-number { color: var(--highlight); font-size: 1.2rem; font-weight: 800; line-height: 1; }
+        .mobile-weekday { display: none; }
+        
+        .expand-icon { font-size: .8rem; color: var(--text-muted); transition: transform .3s ease; display: block; }
+        .day-column.expanded .expand-icon { transform: rotate(180deg); color: var(--accent); }
+
+        .day-content-area { display: flex; flex-direction: column; flex-grow: 1; }
+
+        .day-stats-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; font-size: .85rem; font-weight: 700; pointer-events: auto; margin: 0 12px 8px 12px; }
+        .stat-badge { background: rgba(0,0,0,0.15); padding: 6px 2px; border-radius: 4px; display: flex; justify-content: center; align-items: center; border: 1px solid var(--glass-border); text-align: center; }
+        .stat-badge.clickable { cursor: pointer; transition: background .2s; }
+        .stat-badge.clickable:hover { background: rgba(255,255,255,0.1); border-color: var(--accent); }
+        .stat-badge.chapters span { color: #70b5f9; }
+        .stat-badge.titles span { color: #fff; }
+        .stat-badge.started span { color: #69f0ae; }
+        .stat-badge.finished span { color: #b39ddb; }
+
+        .first-entry-wrapper { padding: 0 12px 12px 12px; }
+        .entries-dropdown {
+            display: none;
+            padding: 0 12px 12px;
+            border-top: 1px solid var(--glass-border);
+            flex-direction: column;
+            gap: 6px;
+            overflow-y: auto;
+            max-height: 500px;
+            cursor: default;
+        }
+        .day-column.expanded .entries-dropdown { display: flex; }
+
+        .cal-entry-card {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            background: rgba(0,0,0,0.15);
+            padding: 8px;
+            border-radius: 6px;
+            min-width: 0;
+            margin-top: 6px;
+            position: relative;
+            border: 1px solid var(--glass-border);
+        }
+        .first-entry-wrapper .cal-entry-card { margin-top: 0; }
+        .cal-entry-card.clickable { cursor: pointer; transition: background .2s ease, transform .2s ease; }
+        .cal-entry-card.clickable:hover { background: rgba(255,255,255,0.08); transform: translateX(4px); border-color: var(--accent); }
+        
+        .cal-entry-cover-wrapper { position: relative; flex-shrink: 0; display: flex; }
+        .cal-entry-cover { width: 50px; height: 70px; object-fit: cover; border-radius: 6px; }
+        
+        /* Updated Final Star Placement */
+        .cal-heart-icon { 
+            position: absolute; 
+            top: -4px; 
+            right: -4px; 
+            font-size: 18px; 
+            color: #ffd27d; 
+            text-shadow: 0 2px 4px rgba(0,0,0,0.8); 
+            z-index: 10; 
+            user-select: none; 
+            line-height: 1; 
+        }
+        
+        .cal-entry-details { display: flex; flex-direction: column; min-width: 0; flex-grow: 1; align-items: flex-start; justify-content: center; }
+        .cal-entry-title { color: var(--highlight); font-size: .85rem; font-weight: 600; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; text-overflow: ellipsis; margin-bottom: 4px; }
+        .cal-entry-title.started { border: 1px solid #69f0ae; padding: 2px 6px; border-radius: 4px; }
+        .cal-entry-chapter { font-size: .8rem; color: var(--text-muted); margin-top: 2px; }
+        .cal-entry-chapter em { color: var(--accent); font-style: normal; font-weight: 600; }
+        .cal-entry-chapter.anime em { color: #ff80ab; }
+        .cal-entry-chapter.reread em { color: #b39ddb!important; }
+
+        .empty-state-text { display: none; color: var(--text-muted); font-size: 0.9rem; align-self: flex-start; padding-top: 6px; }
+
+        /* Charts */
+        .cal-chart-container {
+            border-radius: 12px;
+            padding: 20px;
+            height: 350px;
+            position: relative;
+            margin-top: 24px;
+            width: 100%;
+            box-sizing: border-box;
+            overflow-x: auto;
+        }
+        .cal-chart-container canvas { min-width: 600px; }
+
+        /* Modals */
+        .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0, 0, 0, 0.6); z-index: 999; backdrop-filter: blur(4px); }
+        .tier-modal { display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: var(--bg); border: 1px solid var(--glass-border); box-shadow: var(--glass-shadow); border-radius: 12px; padding: 20px; z-index: 1000; max-height: 85vh; overflow-y: auto; }
+
+        .cal-picker-month { padding: 12px; border-radius: 8px; border: 1px solid var(--glass-border); background: rgba(0,0,0,0.15); cursor: pointer; transition: .2s; color: var(--text-muted); font-weight: 600; text-align: center; position: relative; }
+        .cal-picker-month:hover { border-color: var(--accent); color: var(--highlight); }
+        .cal-picker-month.has-data { background: rgba(255,255,255,0.1); color: var(--highlight); border-color: var(--accent); }
+        .cal-picker-month.current { background: var(--accent)!important; color: #000!important; border-color: var(--accent); }
+        
+        .lb-clickable:hover { color: var(--accent)!important; cursor: pointer; text-decoration: underline; }
+
+        /* Mobile Breakpoints */
+        @media (max-width: 768px) {
+            
+            .monthly-stats-banner {
+                display: grid;
+                grid-template-columns: repeat(4, 1fr);
+                gap: 12px 4px;
+                padding: 12px 8px;
+            }
+            .stat-item:nth-child(1), .stat-item:nth-child(2), .stat-item:nth-child(3), .stat-item:nth-child(4) {
+                grid-column: span 1;
+            }
+            .stat-item:nth-child(6) { grid-column: 1 / 3; } 
+            .stat-item:nth-child(7) { grid-column: 3 / 5; } 
+            
+            .stats-divider { display: none; }
+            .stat-item { flex: none; width: 100%; }
+            .stat-value { font-size: 1.1rem; }
+            .stat-label { font-size: 0.55rem; letter-spacing: 0; white-space: nowrap;}
+        
+            .calendar-grid { display: flex; flex-direction: column; gap: 0; }
+            .weekday-header { display: none; }
+            .day-column { 
+                flex-direction: row; 
+                background: transparent !important; 
+                border: none; 
+                border-bottom: 1px solid var(--glass-border); 
+                border-radius: 0; 
+                padding: 12px 0; 
+                gap: 8px;
+                box-shadow: none !important;
+                backdrop-filter: none !important; 
+                -webkit-backdrop-filter: none !important;
+                transform: translateZ(0); 
+            }
+            .day-column.empty { opacity: 1; }
+            .day-column.future { opacity: 0.5; }
+            
+            .day-top-row { 
+                flex-direction: column; 
+                align-items: center; 
+                justify-content: flex-start; 
+                width: 44px; 
+                flex-shrink: 0; 
+                padding: 0;
+            }
+            .date-number { font-size: 1.8rem; font-weight: 400; }
+            .mobile-weekday { display: block; font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; font-weight: 600; margin-bottom: 2px; }
+            
+            .mobile-day-stats {
+                display: flex;
+                flex-direction: column;
+                justify-content: center;
+                align-items: center;
+                gap: 6px;
+                font-size: 0.75rem;
+                font-weight: 700;
+                padding: 0 4px;
+                border-left: 1px solid var(--glass-border);
+                flex-shrink: 0;
+                width: 32px;
+                box-sizing: border-box;
+                margin-right: 2px;
+            }
+            .mobile-day-stats span { display: block; white-space: nowrap; }
+            .mobile-day-stats .ch { color: #70b5f9; }
+            .mobile-day-stats .tt { color: #fff; }
+            .mobile-day-stats .st { color: #69f0ae; }
+            .mobile-day-stats .fn { color: #b39ddb; }
+
+            .day-content-area { gap: 6px; padding-top: 2px; flex-grow: 1; min-width: 0; }
+            .day-stats-grid { display: none; }
+            
+            .expand-icon { display: none !important; }
+            
+            .first-entry-wrapper { padding: 0; margin: 0; }
+            .entries-dropdown { padding: 0; border: none; margin: 0; max-height: none; overflow: visible; padding-top: 6px; }
+            .cal-entry-card { background: var(--panel); border-radius: 8px; margin: 0; padding: 8px; border: 1px solid transparent; transform: translateZ(0); will-change: transform; }
+            
+            .empty-state-text.show { display: block; margin-left: 12px; }
+            
+            .cal-chart-container { display: none !important; }
+            
+            .workspace { padding: 12px; }
+            .tier-modal { width: 95vw !important; padding: 16px !important; box-sizing: border-box; }
+            #cal-adv-modal { grid-template-columns: 1fr; }
+            #cal-adv-modal > div { flex-direction: column; }
+            #cal-lb-grid-container { grid-template-columns: 1fr !important; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="header-wrapper" id="main-header">
+    <div class="header-row-1">
+        <div class="navbar-left">
+            <div class="navbar-logo-icon" title="Select Global Theme">
+                <span>⠁⠧⠑⠇</span>
+                <select id="shared-theme-selector" class="braille-theme-select" onchange="applyGlobalTheme(this.value)">
+                    <option value="tako" selected="selected">Tako</option><option value="squib">Squib</option><option value="sakura">Sakura</option><option value="pickle">Pickle</option><option value="forest">Forest</option><option value="cn">CN</option><option value="pastel">Pastel</option><option value="peach">Peach</option><option value="catppuccin">Catppuccin</option><option value="nord">Nord</option><option value="strawberry">Daiquiri</option><option value="h4ck3r">h4ck3r</option><option value="chocolate_mint">Choco Mint</option><option value="cent">Cent</option><option value="rosey">Rosey</option><option value="ocean_ui">Ocean</option><option value="seaside">Seaside</option><option value="fresh">Fresh</option>
+                </select>
+            </div>
+        </div>
+        
+        <div class="mobile-center-month mobile-only">
+            <button class="cal-nav-btn" onclick="calPrevMonth()">◀</button>
+            <div id="cal-month-year-label-mobile" class="month-label" onclick="calOpenMonthPicker(event)">Loading...</div>
+            <button class="cal-nav-btn" onclick="calNextMonth()">▶</button>
+        </div>
+        
+        <button class="fetch-btn mobile-only" id="cal-sync-btn-mobile" onclick="calLoadAndRender()">Sync</button>
+    </div>
+
+    <div class="header-row-2">
+        <div class="nav-controls-group" id="nav-center-cal">
+            
+            <div class="desktop-month-nav desktop-only">
+                <button class="cal-nav-btn" onclick="calPrevMonth()">◀</button>
+                <div id="cal-month-year-label" class="month-label" onclick="calOpenMonthPicker(event)">Loading...</div>
+                <button class="cal-nav-btn" onclick="calNextMonth()">▶</button>
+            </div>
+            
+            <input type="text" id="cal-username" placeholder="AniList User" value="Finavel" onclick="this.value=''">
+            <button id="cal-sync-btn" class="fetch-btn desktop-only" onclick="calLoadAndRender()">Sync</button>
+            
+            <div style="position:relative; flex-grow: 1; display:flex;">
+                <input type="text" id="cal-title-search" placeholder="Search series..." oninput="calDebouncedSearch()" style="width: 100%;">
+                <div id="cal-search-results" class="glass" style="display:none; position:absolute; top:100%; left:0; width:100%; min-width: 220px; max-height: 250px; overflow-y:auto; border-radius: 8px; z-index: 1000; margin-top: 8px; box-shadow: 0 4px 16px rgba(0,0,0,0.8);"></div>
+            </div>
+            
+            <button class="fetch-btn icon-btn-header" onclick="calOpenAdvModal()" title="Database Stats">
+                <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none"><path d="M12 20V10M18 20V4M6 20v-4"></path></svg>
+            </button>
+
+            <div style="position:relative; display:flex; align-items:center;" id="export-import-menu">
+                <button class="fetch-btn icon-btn-header" onclick="toggleEIMenu(event)" title="Export / Import">
+                    <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+                </button>
+                <div id="ei-dropdown" class="glass">
+                    <button onclick="calInitiateExport(); toggleEIMenu(event)">Export</button>
+                    <!-- Improved mobile import compatibility with label connection -->
+                    <label for="import-file" class="fetch-btn" style="border-radius:0; border:none; width:100%; margin:0; cursor:pointer; text-align:left; justify-content:flex-start;">Import</label>
+                    <input type="file" id="import-file" accept=".json,application/json,text/plain" class="hidden-file-input" onchange="calImportData(event); $('ei-dropdown').style.display='none'">
+                </div>
+            </div>
+            
+        </div>
+    </div>
+</div>
+
+<div class="workspace">
+    <div id="cal-status-message" style="text-align:center; color:var(--accent); font-size:12px; font-weight:bold; height:16px; margin-bottom:10px;"></div>
+    
+    <div class="monthly-stats-banner glass">
+        <div class="stat-item"><div class="stat-value chapters" id="cal-total-chapters">0</div><div class="stat-label">Chapters</div></div>
+        <div class="stat-item"><div class="stat-value titles" id="cal-total-titles">0</div><div class="stat-label">Titles Read</div></div>
+        <div class="stat-item"><div class="stat-value started" id="cal-total-started">0</div><div class="stat-label">Started</div></div>
+        <div class="stat-item"><div class="stat-value finished" id="cal-total-finished">0</div><div class="stat-label">Finished</div></div>
+        <div class="stats-divider"></div>
+        <div class="stat-item"><div class="stat-value alltime" id="cal-alltime-chapters">-</div><div class="stat-label">Total Chs</div></div>
+        <div class="stat-item"><div class="stat-value alltime" id="cal-alltime-titles">-</div><div class="stat-label">Total Titles</div></div>
+    </div>
+
+    <div class="calendar-grid" id="cal-grid">
+        <!-- Calendar days injected by JS -->
+    </div>
+
+    <div class="cal-chart-container glass">
+        <canvas id="calActivityChart"></canvas>
+    </div>
+    <div class="cal-chart-container glass" style="margin-bottom:40px;">
+        <canvas id="calMonthlyChart"></canvas>
+    </div>
+</div>
+
+<!-- Modals -->
+<div class="modal-overlay" id="cal-month-picker-overlay" onclick="calCloseMonthPicker()"></div>
+<div class="tier-modal glass" id="cal-month-picker-modal" style="width:320px; text-align:center;">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+        <button class="cal-nav-btn" style="background:rgba(0,0,0,0.15); border-radius:8px; padding:4px 12px;" onclick="calPickerPrevYear()">◀</button>
+        <span id="cal-picker-year" style="font-size:18px; font-weight:bold; color:var(--highlight);">Year</span>
+        <button class="cal-nav-btn" style="background:rgba(0,0,0,0.15); border-radius:8px; padding:4px 12px;" onclick="calPickerNextYear()">▶</button>
+    </div>
+    <div id="cal-picker-grid" style="display:grid; grid-template-columns:repeat(3,1fr); gap:12px;"></div>
+</div>
+
+<div class="modal-overlay" id="cal-history-overlay" onclick="calCloseHistory()"></div>
+<div class="tier-modal glass" id="cal-history-modal" style="width: 420px;">
+    <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:16px; gap: 12px;">
+        <span id="cal-history-title" style="font-size:18px; font-weight:800; color:var(--highlight); line-height: 1.2;">Series History</span>
+        <button class="cal-nav-btn" style="background:rgba(0,0,0,0.15); border-radius:8px; padding:6px 12px;" onclick="calCloseHistory()">✕</button>
+    </div>
+    <div id="cal-history-list" style="display:flex; flex-direction:column; gap:8px;"></div>
+</div>
+
+<div class="modal-overlay" id="cal-adv-overlay" onclick="calCloseAdvModal()"></div>
+<div class="tier-modal glass" id="cal-adv-modal" style="width: 900px;">
+    <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:16px; gap: 12px;">
+        <span style="font-size:18px; font-weight:800; color:var(--highlight);">Database Stats & Leaderboards</span>
+        <button class="cal-nav-btn" style="background:rgba(0,0,0,0.15); border-radius:8px; padding:6px 12px;" onclick="calCloseAdvModal()">✕</button>
+    </div>
+    <div style="display:flex; gap:16px; margin-bottom: 24px; flex-wrap: wrap;">
+        <div style="flex:1; min-width: 250px; background:rgba(0,0,0,0.15); padding:16px; border-radius:12px; border:1px solid var(--glass-border);">
+            <div style="font-size:11px; font-weight:bold; color:var(--text-muted); text-transform:uppercase; letter-spacing:1px; margin-bottom:12px;">Database Memory</div>
+            <div style="display:grid; grid-template-columns:repeat(4, 1fr); gap:8px;">
+                <div style="text-align:center;"><div style="font-size:18px; font-weight:bold; color:#70b5f9;" id="cal-adv-g-chap">0</div><div style="font-size:10px; color:var(--text-muted);">Chapters</div></div>
+                <div style="text-align:center;"><div style="font-size:18px; font-weight:bold; color:#fff;" id="cal-adv-g-tit">0</div><div style="font-size:10px; color:var(--text-muted);">Titles</div></div>
+                <div style="text-align:center;"><div style="font-size:18px; font-weight:bold; color:#69f0ae;" id="cal-adv-g-start">0</div><div style="font-size:10px; color:var(--text-muted);">Started</div></div>
+                <div style="text-align:center;"><div style="font-size:18px; font-weight:bold; color:#b39ddb;" id="cal-adv-g-fin">0</div><div style="font-size:10px; color:var(--text-muted);">Finished</div></div>
+            </div>
+        </div>
+        <div style="flex:1; min-width: 250px; background:rgba(0,0,0,0.15); padding:16px; border-radius:12px; border:1px solid var(--glass-border);">
+            <div id="cal-adv-y-label" style="font-size:11px; font-weight:bold; color:var(--text-muted); text-transform:uppercase; letter-spacing:1px; margin-bottom:12px;">Current Year Stats</div>
+            <div style="display:grid; grid-template-columns:repeat(4, 1fr); gap:8px;">
+                <div style="text-align:center;"><div style="font-size:18px; font-weight:bold; color:#70b5f9;" id="cal-adv-y-chap">0</div><div style="font-size:10px; color:var(--text-muted);">Chapters</div></div>
+                <div style="text-align:center;"><div style="font-size:18px; font-weight:bold; color:#fff;" id="cal-adv-y-tit">0</div><div style="font-size:10px; color:var(--text-muted);">Titles</div></div>
+                <div style="text-align:center;"><div style="font-size:18px; font-weight:bold; color:#69f0ae;" id="cal-adv-y-start">0</div><div style="font-size:10px; color:var(--text-muted);">Started</div></div>
+                <div style="text-align:center;"><div style="font-size:18px; font-weight:bold; color:#b39ddb;" id="cal-adv-y-fin">0</div><div style="font-size:10px; color:var(--text-muted);">Finished</div></div>
+            </div>
+        </div>
+    </div>
+    <div style="display:flex; justify-content:center; flex-wrap: wrap; gap:8px; margin-bottom:16px;">
+        <button class="fetch-btn" id="cal-lb-btn-chapters" onclick="calSetLbMode('chapters')" style="background:var(--accent); color:#000; border-color:var(--accent);">Chapters Read</button>
+        <button class="fetch-btn" id="cal-lb-btn-started" onclick="calSetLbMode('started')">Titles Started</button>
+        <button class="fetch-btn" id="cal-lb-btn-finished" onclick="calSetLbMode('finished')">Titles Finished</button>
+    </div>
+    <div style="display:grid; grid-template-columns:repeat(5, 1fr); gap:12px;" id="cal-lb-grid-container">
+        <!-- Rendered by JS -->
+    </div>
+</div>
+
+<script>
+    // --- Utils & State ---
+    const $ = id => document.getElementById(id);
+    const calRealDate = new Date();
+    let calCurrentYear = calRealDate.getFullYear();
+    let calCurrentMonth = calRealDate.getMonth();
+    const calMonthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+    const calWeekdays = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+    
+    let calGlobalCache = {};
+    let calActivityChartInstance = null;
+    let calMonthlyChartInstance = null;
+    let calSearchTimeout;
+    
+    // Minimal status setting to avoid persistent UI spam
+    const calSetStatus = (msg) => { $('cal-status-message').innerText = msg; };
+    const calSleep = (ms) => new Promise(r => setTimeout(r, ms));
+
+    // LB State
+    let calLbMode = 'chapters';
+    let calLbData = { chapters: {}, started: {}, finished: {} };
+    let calLbPageIdx = { streaks: 0, years: 0, months: 0, weeks: 0, days: 0 };
+
+    // --- Themes Setup ---
+    const themes = {
+        tako: { bg: '#1c1d30', panel: 'rgba(52,53,79,0.7)', inner: 'rgba(52,53,79,0.5)', accent: '#f39c12' },
+        squib: { bg: '#0a0a0a', panel: 'rgba(30,30,30,0.7)', inner: 'rgba(30,30,30,0.7)', accent: '#f06292' },
+        sakura: { bg: '#f6b6c0', panel: 'rgba(248,211,226,0.7)', inner: 'rgba(248,211,226,0.5)', accent: '#999D55' },
+        pickle: { bg: '#1c241b', panel: 'rgba(48,61,46,0.7)', inner: 'rgba(48,61,46,0.5)', accent: '#a1c16d' },
+        forest: { bg: '#131a16', panel: 'rgba(37,51,43,0.7)', inner: 'rgba(37,51,43,0.5)', accent: '#f7f9e8' },
+        cn: { bg: '#4c1410', panel: 'rgba(148,43,39,0.7)', inner: 'rgba(148,43,39,0.5)', accent: '#eeb440' },
+        pastel: { bg: '#dfc5c4', panel: 'rgba(243,228,212,0.7)', inner: 'rgba(243,228,212,0.5)', accent: '#bed2c1' },
+        peach: { bg: '#be7c72', panel: 'rgba(216,165,148,0.7)', inner: 'rgba(216,165,148,0.5)', accent: '#e4cba9' },
+        catppuccin: { bg: '#11111b', panel: 'rgba(24,24,37,0.7)', inner: 'rgba(24,24,37,0.7)', accent: '#cba6f7' },
+        nord: { bg: '#242933', panel: 'rgba(59,66,82,0.7)', inner: 'rgba(59,66,82,0.7)', accent: '#88c0d0' },
+        strawberry: { bg: '#1f1214', panel: 'rgba(59,34,38,0.7)', inner: 'rgba(59,34,38,0.7)', accent: '#ff5252' },
+        h4ck3r: { bg: '#1e2226', panel: 'rgba(55,60,65,0.8)', inner: 'rgba(55,60,65,0.8)', accent: '#98FBCB' },
+        chocolate_mint: { bg: '#2b1d19', panel: 'rgba(64,46,42,0.8)', inner: 'rgba(64,46,42,0.8)', accent: '#76CD98' },
+        cent: { bg: '#EBE9E1', panel: 'rgba(228,60,18,0.7)', inner: 'rgba(228,60,18,0.5)', accent: '#FFA2B6' },
+        rosey: { bg: '#e3e2df', panel: 'rgba(238,76,124,0.7)', inner: 'rgba(238,76,124,0.5)', accent: '#f8f8f8' },
+        ocean_ui: { bg: '#84ceeb', panel: 'rgba(86,128,233,0.7)', inner: 'rgba(86,128,233,0.5)', accent: '#8860d0' },
+        seaside: { bg: '#a8d0e6', panel: 'rgba(247,108,108,0.7)', inner: 'rgba(247,108,108,0.5)', accent: '#f8e9a1' },
+        fresh: { bg: '#65ccb8', panel: 'rgba(242,242,242,0.7)', inner: 'rgba(242,242,242,0.5)', accent: '#ffb7c5' }
+    };
+
+    function setCss(v, val) { document.documentElement.style.setProperty(v, val); }
+
+    function applyGlobalTheme(tId) {
+        if (!tId) tId = 'tako';
+        if ($('shared-theme-selector') && $('shared-theme-selector').value !== tId) $('shared-theme-selector').value = tId;
+        
+        let t = themes[tId] || themes.tako;
+        setCss('--bg', t.bg);
+        setCss('--panel', t.panel);
+        setCss('--inner', t.inner);
+        setCss('--accent', t.accent);
+
+        const lightTextThemes = ['rosey', 'fresh', 'seaside', 'ocean_ui', 'cent', 'sakura', 'pastel', 'peach'];
+        setCss('--text', lightTextThemes.includes(tId) ? '#ffffff' : '#e3e5e8');
+        setCss('--text-muted', lightTextThemes.includes(tId) ? 'rgba(255,255,255,0.85)' : '#9fadbd');
+        
+        localStorage.setItem('cablender_theme', tId);
+    }
+
+    function toggleEIMenu(e) {
+        if(e) e.stopPropagation();
+        const m = $('ei-dropdown');
+        m.style.display = m.style.display === 'flex' ? 'none' : 'flex';
+    }
+
+    // --- IndexedDB Setup ---
+    const dbName = 'CablenderDB';
+    const storeName = 'months';
+    let dbPromise = new Promise((resolve, reject) => {
+        const req = indexedDB.open(dbName, 1);
+        req.onupgradeneeded = e => { 
+            const db = e.target.result;
+            if (!db.objectStoreNames.contains(storeName)) {
+                db.createObjectStore(storeName, { keyPath: 'id' }); 
+            }
+        };
+        req.onsuccess = e => resolve(e.target.result);
+        req.onerror = e => reject(e);
+    });
+
+    async function saveMonthToDB(key, data) {
+        const db = await dbPromise;
+        const tx = db.transaction(storeName, 'readwrite');
+        tx.objectStore(storeName).put({ id: key, ...data });
+        return new Promise(resolve => { tx.oncomplete = resolve; });
+    }
+
+    async function getMonthFromDB(key) {
+        const db = await dbPromise;
+        return new Promise(resolve => {
+            const req = db.transaction(storeName, 'readonly').objectStore(storeName).get(key);
+            req.onsuccess = () => resolve(req.result);
+            req.onerror = () => resolve(null);
+        });
+    }
+
+    async function getAllMonthsFromDB() {
+        const db = await dbPromise;
+        return new Promise(resolve => {
+            const req = db.transaction(storeName, 'readonly').objectStore(storeName).getAll();
+            req.onsuccess = () => resolve(req.result);
+        });
+    }
+
+    async function fetchAPI(query, variables) {
+        const res = await fetch('https://graphql.anilist.co', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+            body: JSON.stringify({ query, variables })
+        });
+        if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
+        const json = await res.json();
+        if (json.errors) throw new Error(json.errors[0].message);
+        return json.data;
+    }
+
+    // --- Core Navigation ---
+    window.onload = async () => {
+        // Load Theme
+        const savedTheme = localStorage.getItem('cablender_theme') || 'tako';
+        applyGlobalTheme(savedTheme);
+
+        // Setup initial leaderboard DOM structure
+        const lbContainer = $('cal-lb-grid-container');
+        ['streaks', 'years', 'months', 'weeks', 'days'].forEach(cat => {
+            const col = document.createElement('div');
+            col.style.cssText = 'background:rgba(0,0,0,0.15); border-radius:8px; border:1px solid var(--glass-border); display:flex; flex-direction:column; overflow:hidden; min-width: 150px;';
+            const TitleMap = {streaks: 'Top Streaks', years: 'Top Years', months: 'Top Months', weeks: 'Top Weeks', days: 'Top Days'};
+            col.innerHTML = `
+                <div style="background:rgba(255,255,255,0.05); padding:8px; font-size:12px; font-weight:bold; text-align:center;">${TitleMap[cat]}</div>
+                <div id="cal-lb-${cat}-list" style="flex:1; padding:8px; min-height:200px;"></div>
+                <div style="display:flex; justify-content:space-between; padding:4px; background:rgba(0,0,0,0.15);">
+                    <button class="cal-nav-btn" style="padding:2px 8px; font-size:10px;" id="cal-lb-${cat}-prev" onclick="calLbPage('${cat}', -1)">◀</button>
+                    <button class="cal-nav-btn" style="padding:2px 8px; font-size:10px;" id="cal-lb-${cat}-next" onclick="calLbPage('${cat}', 1)">▶</button>
+                </div>
+            `;
+            lbContainer.appendChild(col);
+        });
+
+        // Load Memory Bank from IndexedDB
+        try {
+            const storedMonths = await getAllMonthsFromDB();
+            if (storedMonths && storedMonths.length > 0) {
+                storedMonths.forEach(m => {
+                    calGlobalCache[m.id] = m;
+                });
+            }
+        } catch (e) {
+            console.error("Failed to load DB", e);
+        }
+        calNavigateMonth();
+    };
+
+    function calPrevMonth() { 
+        calCurrentMonth--; 
+        if (calCurrentMonth < 0) { calCurrentMonth = 11; calCurrentYear--; } 
+        calNavigateMonth(); 
+    }
+    
+    function calNextMonth() { 
+        calCurrentMonth++; 
+        if (calCurrentMonth > 11) { calCurrentMonth = 0; calCurrentYear++; } 
+        calNavigateMonth(); 
+    }
+
+    function calNavigateMonth() {
+        const titleText = `${calMonthNames[calCurrentMonth]} ${calCurrentYear}`;
+        $('cal-month-year-label').innerText = titleText;
+        if($('cal-month-year-label-mobile')) $('cal-month-year-label-mobile').innerText = titleText;
+        
+        const currentCacheKey = `${calCurrentYear}_${calCurrentMonth}`;
+        if (calGlobalCache[currentCacheKey]) { 
+            calRenderUI(calGlobalCache[currentCacheKey]); 
+            calSetStatus(""); 
+        } else { 
+            calRenderUI(null); 
+            calSetStatus(""); 
+        }
+    }
+
+    // --- Search & History ---
+    function calDebouncedSearch() { 
+        clearTimeout(calSearchTimeout); 
+        calSearchTimeout = setTimeout(calExecuteSearch, 300); 
+    }
+
+    function calExecuteSearch() {
+        const q = $('cal-title-search').value.toLowerCase().trim(); 
+        const resDiv = $('cal-search-results');
+        if (!q) { resDiv.style.display = 'none'; return; }
+        
+        let matches = new Set();
+        for (let k in calGlobalCache) {
+            if (!k.includes('_')) continue; 
+            const days = calGlobalCache[k].processed?.days; 
+            if (!days) continue;
+            for (let d in days) { 
+                if (!days[d].entriesList) continue; 
+                days[d].entriesList.forEach(e => { if (e.title.toLowerCase().includes(q)) matches.add(e.title); }); 
+            }
+        }
+        
+        if (matches.size === 0) {
+            resDiv.innerHTML = '<div style="padding:12px; font-size:12px; color:var(--text-muted); text-align:center;">No series found.</div>';
+        } else {
+            resDiv.innerHTML = Array.from(matches).map(title => `<div style="padding:10px 14px; cursor:pointer; font-size:13px; font-weight:500; border-bottom:1px solid rgba(255,255,255,0.05); transition: 0.2s;" onclick="calOpenHistory('${title.replace(/'/g, "\\'")}')" onmouseover="this.style.background='var(--accent)'; this.style.color='#000';" onmouseout="this.style.background='transparent'; this.style.color='var(--highlight)';">${title}</div>`).join('');
+        }
+        resDiv.style.display = 'block';
+    }
+
+    document.addEventListener('click', e => { 
+        if (!e.target.closest('#cal-title-search') && !e.target.closest('#cal-search-results')) { 
+            const resDiv = $('cal-search-results'); if (resDiv) resDiv.style.display = 'none'; 
+        }
+        if (!e.target.closest('#export-import-menu')) {
+            const eiDrop = $('ei-dropdown'); if (eiDrop) eiDrop.style.display = 'none';
+        }
+    });
+
+    function calOpenHistory(title) {
+        $('cal-search-results').style.display = 'none'; 
+        $('cal-title-search').value = ''; 
+        let history = [];
+        
+        for (let k in calGlobalCache) {
+            if (!k.includes('_')) continue; 
+            const [year, month] = k.split('_').map(Number); 
+            const days = calGlobalCache[k].processed?.days; 
+            if (!days) continue;
+            
+            for (let d in days) {
+                if (!days[d].entriesList) continue; 
+                const entry = days[d].entriesList.find(e => e.title === title);
+                if (entry) history.push({ year, month, day: parseInt(d), chapters: entry.chaptersRead, started: entry.isStarted, completed: entry.isCompleted, max: entry.maxProgress, aId: entry.activityId });
+            }
+        }
+        history.sort((a, b) => { if (a.year !== b.year) return a.year - b.year; if (a.month !== b.month) return a.month - b.month; return a.day - b.day; });
+        
+        $('cal-history-title').innerText = title; 
+        const listDiv = $('cal-history-list');
+        
+        if (history.length === 0) {
+            listDiv.innerHTML = '<div style="color:var(--text-muted); font-size:13px; text-align:center; padding: 20px;">No activity on record.</div>';
+        } else {
+            listDiv.innerHTML = history.map((h, i) => {
+                const dateStr = `${calMonthNames[h.month]} ${h.day}, ${h.year}`; 
+                let tags = [];
+                if (h.started) tags.push('<span style="color:#69f0ae; border:1px solid #69f0ae; padding:2px 6px; border-radius:4px; font-size:10px; font-weight: bold;">Started</span>');
+                if (h.completed) tags.push('<span style="color:#b39ddb; border:1px solid #b39ddb; padding:2px 6px; border-radius:4px; font-size:10px; font-weight: bold;">Finished</span>');
+                let actionStr = h.chapters > 0 ? `Read <b style="color:var(--highlight)">${h.chapters}</b> chapters (up to ${h.max})` : `Logged interaction`;
+                return `<div style="background:rgba(0,0,0,0.3); border:1px solid var(--glass-border); padding:12px; border-radius:8px; cursor:pointer; transition:0.2s;" onclick="calJumpToDate(${h.year}, ${h.month}, ${h.day})" onmouseover="this.style.borderColor='var(--accent)'; this.style.transform='translateX(4px)'" onmouseout="this.style.borderColor='var(--glass-border)'; this.style.transform='none'"><div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;"><span style="font-weight:700; color:var(--highlight); font-size:14px;">Day ${i + 1}: ${dateStr}</span><div style="display:flex; gap:6px;">${tags.join('')}</div></div><div style="font-size:13px; color:var(--text-muted);">${actionStr}</div></div>`;
+            }).join('');
+        }
+        $('cal-history-overlay').style.display = 'block'; $('cal-history-modal').style.display = 'block';
+    }
+
+    function calCloseHistory() { 
+        $('cal-history-overlay').style.display = 'none'; 
+        $('cal-history-modal').style.display = 'none'; 
+    }
+
+    function calJumpToDate(y, m, d) {
+        calCloseHistory();
+        calCurrentYear = y;
+        calCurrentMonth = m;
+        calNavigateMonth();
+        setTimeout(() => {
+            const dayCols = document.querySelectorAll('.day-column');
+            for (let col of dayCols) {
+                const dateNum = col.querySelector('.date-number');
+                if (dateNum && parseInt(dateNum.innerText) === d) {
+                    col.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    calHighlightDay(col);
+                    if (!col.classList.contains('expanded')) col.classList.add('expanded');
+                    break;
+                }
+            }
+        }, 150);
+    }
+
+    function calHighlightDay(col) {
+        col.style.transition = 'box-shadow 0.4s ease, border-color 0.4s ease'; 
+        col.style.boxShadow = '0 0 24px var(--accent)'; 
+        col.style.borderColor = 'var(--accent)';
+        setTimeout(() => { col.style.boxShadow = ''; col.style.borderColor = ''; }, 2500);
+    }
+
+    // --- Export / Import ---
+    let calPickerCurrentYear = calCurrentYear;
+    let calExportMode = false;
+    let calExportStart = null;
+
+    function calInitiateExport() {
+        const cacheKeys = Object.keys(calGlobalCache).filter(k => k.includes('_'));
+        if (cacheKeys.length === 0) return alert("Memory bank is empty. Sync data before exporting.");
+        calExportMode = true; 
+        calExportStart = null; 
+        calPickerCurrentYear = calCurrentYear;
+        $('cal-month-picker-overlay').style.display = 'block';
+        $('cal-month-picker-modal').style.display = 'block';
+        calRenderMonthPicker();
+    }
+
+    function calRenderMonthPicker() {
+        let titleText = calPickerCurrentYear;
+        if (calExportMode) titleText = calExportStart ? `End Month (${calPickerCurrentYear})` : `Start Month (${calPickerCurrentYear})`;
+        $('cal-picker-year').innerText = titleText;
+        
+        let g = $('cal-picker-grid'); g.innerHTML = ''; 
+        let allCounts = [];
+        for (let k in calGlobalCache) { 
+            if (k.includes('_')) { let c = calGlobalCache[k].processed?.stats?.chapters || 0; if (c > 0) allCounts.push(c); } 
+        }
+        allCounts.sort((a, b) => a - b);
+        
+        for (let m = 0; m < 12; m++) {
+            let k = `${calPickerCurrentYear}_${m}`; 
+            let d = calGlobalCache[k]; 
+            let h = !!d;
+            let curr = (calPickerCurrentYear === calCurrentYear && m === calCurrentMonth);
+            let c = h ? (d.processed?.stats?.chapters || 0) : 0;
+            
+            let b = document.createElement('div');
+            b.className = `cal-picker-month ${h ? 'has-data' : ''} ${curr && !calExportMode ? 'current' : ''}`;
+            b.innerText = calMonthNames[m].substring(0, 3);
+            
+            if (h && (!curr || calExportMode) && c > 0) {
+                let index = allCounts.indexOf(c); 
+                let pct = Math.max(15, Math.floor((index / Math.max(1, allCounts.length - 1)) * 100));
+                b.style.background = `color-mix(in srgb, var(--accent) ${pct}%, rgba(0,0,0,0.3))`; 
+                b.style.color = '#fff'; 
+                b.style.borderColor = 'var(--accent)';
+            }
+            if (c > 0) b.setAttribute('title', `${c.toLocaleString()} chs`);
+            
+            b.onclick = () => {
+                if (calExportMode) {
+                    if (!calExportStart) { 
+                        calExportStart = { year: calPickerCurrentYear, month: m }; 
+                        calRenderMonthPicker(); 
+                    } else { 
+                        let calExportEnd = { year: calPickerCurrentYear, month: m }; 
+                        calExecuteExport(calExportStart, calExportEnd); 
+                    }
+                } else { 
+                    calCurrentYear = calPickerCurrentYear; 
+                    calCurrentMonth = m; 
+                    calNavigateMonth(); 
+                    calCloseMonthPicker(); 
+                }
+            };
+            g.appendChild(b);
+        }
+    }
+
+    function calOpenMonthPicker(e) { 
+        calPickerCurrentYear = calCurrentYear; 
+        $('cal-month-picker-overlay').style.display = 'block'; 
+        let m = $('cal-month-picker-modal'); 
+        m.style.display = 'block'; 
+        calRenderMonthPicker(); 
+    }
+    
+    function calPickerPrevYear() { calPickerCurrentYear--; calRenderMonthPicker(); }
+    function calPickerNextYear() { calPickerCurrentYear++; calRenderMonthPicker(); }
+    function calCloseMonthPicker() { $('cal-month-picker-overlay').style.display = 'none'; $('cal-month-picker-modal').style.display = 'none'; calExportMode = false; calExportStart = null; }
+
+    function calExecuteExport(start, end) {
+        let startVal = start.year * 12 + start.month; 
+        let endVal = end.year * 12 + end.month;
+        if (startVal > endVal) { let temp = start; start = end; end = temp; }
+        
+        let exportData = {};
+        Object.keys(calGlobalCache).filter(k => k.includes('_')).forEach(k => {
+            const [y, m] = k.split('_').map(Number); 
+            let val = y * 12 + m;
+            if (val >= startVal && val <= endVal) exportData[k] = calGlobalCache[k];
+        });
+        
+        if (Object.keys(exportData).length === 0) { 
+            calCloseMonthPicker(); return alert("No data found in the selected range."); 
+        }
+        
+        const parseLabel = (y, m) => { const padMonth = String(Number(m) + 1).padStart(2, '0'); return `${padMonth}${String(y).substring(2)}`; };
+        const fileLabel = startVal === endVal ? parseLabel(start.year, start.month) : `${parseLabel(start.year, start.month)}-${parseLabel(end.year, end.month)}`;
+        
+        const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(exportData));
+        const downloadAnchorNode = document.createElement('a'); 
+        downloadAnchorNode.setAttribute("href", dataStr); 
+        downloadAnchorNode.setAttribute("download", `caBLendar_${fileLabel}.json`); 
+        document.body.appendChild(downloadAnchorNode); 
+        downloadAnchorNode.click(); 
+        downloadAnchorNode.remove();
+        calCloseMonthPicker();
+    }
+
+    async function calImportData(e) {
+        const files = e.target.files; if (!files || !files.length) return; 
+        let shouldRender = false;
+        calSetStatus("Importing...");
+        for (let i = 0; i < files.length; i++) {
+            await new Promise(res => {
+                const reader = new FileReader();
+                reader.onload = async function (ev) {
+                    try {
+                        const o = JSON.parse(ev.target.result);
+                        if (o.processed && o.year !== undefined) { 
+                            const cacheKey = `${o.year}_${o.month}`;
+                            calGlobalCache[cacheKey] = { 
+                                id: cacheKey, 
+                                processed: o.processed, 
+                                allTimeChapters: o.allTimeChapters || 0, 
+                                allTimeTitles: o.allTimeTitles || 0, 
+                                rawActivities: o.rawActivities || [], 
+                                officialDates: o.officialDates || [] 
+                            }; 
+                            calCurrentYear = o.year; 
+                            calCurrentMonth = o.month;
+                            await saveMonthToDB(cacheKey, calGlobalCache[cacheKey]);
+                        } else {
+                            const k = Object.keys(o).filter(x => x.includes('_'));
+                            for (let j = 0; j < k.length; j++) {
+                                const key = k[j];
+                                calGlobalCache[key] = { ...calGlobalCache[key], ...o[key], id: key };
+                                await saveMonthToDB(key, calGlobalCache[key]);
+                            }
+                            if (k.length > 0) { 
+                                k.sort((a, b) => { const [ay, am] = a.split('_').map(Number); const [by, bm] = b.split('_').map(Number); return (ay * 12 + am) - (by * 12 + bm); }); 
+                                const [y, m] = k[k.length - 1].split('_').map(Number); 
+                                calCurrentYear = y; calCurrentMonth = m; 
+                            }
+                        }
+                        shouldRender = true;
+                    } catch (err) {} res();
+                };
+                reader.readAsText(files[i]);
+            });
+        }
+        if (shouldRender) {
+            calRecalculateHistoricBanners(); 
+            const u = $('cal-username').value.trim();
+            if (u) {
+                calSetStatus(`Extracting Media IDs...`); await calSleep(50); 
+                let ids = new Set();
+                for (const k in calGlobalCache) { 
+                    const d = calGlobalCache[k].processed?.days; 
+                    if (!d) continue; 
+                    for (let day in d) { 
+                        if (d[day].entriesList) { d[day].entriesList.forEach(x => { if (x.id) ids.add(x.id); }); } 
+                    } 
+                }
+                if (ids.size > 0) { 
+                    try { 
+                        const ud = await calGetUserData(u); 
+                        const od = await calFetchOfficialListDates(ud.id, Array.from(ids)); 
+                        calTranslateEntireCache(od); 
+                        for (const k in calGlobalCache) {
+                            if (k.includes('_')) await saveMonthToDB(k, calGlobalCache[k]);
+                        }
+                    } catch (err) {} 
+                }
+            }
+            calNavigateMonth(); 
+            calSetStatus(""); 
+        } else {
+            calSetStatus(""); 
+        }
+        e.target.value = '';
+    }
+
+    // --- API & Processing ---
+    async function calGetUserData(username) {
+        const query = `query ($name: String) { User(name: $name) { id statistics { manga { chaptersRead count } } } }`;
+        const data = await fetchAPI(query, { name: username }); 
+        let chs = 0, ttl = 0;
+        if (data.User.statistics && data.User.statistics.manga) { chs = data.User.statistics.manga.chaptersRead || 0; ttl = data.User.statistics.manga.count || 0; }
+        return { id: data.User.id, liveChapters: chs, liveTitles: ttl };
+    }
+
+    async function calFetchMonthActivities(userId, year, month, startOverride) {
+        const startOfMonth = startOverride || Math.floor(new Date(year, month, 1).getTime() / 1000);
+        const endOfMonthRaw = Math.floor(new Date(year, month + 1, 0, 23, 59, 59).getTime() / 1000);
+        const currentUnix = Math.floor(calRealDate.getTime() / 1000);
+        const endOfMonth = Math.min(endOfMonthRaw, currentUnix);
+        
+        if (startOfMonth >= endOfMonth) return []; 
+        
+        const query = `query ($userId: Int, $page: Int, $start: Int, $end: Int) { Page(page: $page, perPage: 50) { pageInfo { hasNextPage } activities(userId: $userId, type: MEDIA_LIST, createdAt_greater: $start, createdAt_lesser: $end, sort: ID_DESC) { ... on ListActivity { id createdAt progress status media { id type chapters episodes title { english userPreferred } coverImage { large } } } } } }`;
+        let page = 1, hasNext = true, activities = [];
+        
+        while (hasNext && page <= 40) {
+            try {
+                const data = await fetchAPI(query, { userId, page, start: startOfMonth, end: endOfMonth });
+                if (!data.Page || !data.Page.activities) break;
+                const validActivities = data.Page.activities.filter(a => a && a.media);
+                activities.push(...validActivities);
+                hasNext = data.Page.pageInfo.hasNextPage; 
+                page++;
+            } catch (e) { break; }
+        }
+        return activities;
+    }
+
+    async function calFetchOfficialListDates(userId, mediaIds) {
+        if (!mediaIds || mediaIds.length === 0) return [];
+        let allEntries = [];
+        for (let i = 0; i < mediaIds.length; i += 50) {
+            const batch = mediaIds.slice(i, i + 50);
+            const query = `query ($userId: Int, $mediaIds: [Int]) { Page(page: 1, perPage: 50) { mediaList(userId: $userId, mediaId_in: $mediaIds) { progress media { id type chapters episodes title { english userPreferred } coverImage { large } } startedAt { year month day } completedAt { year month day } } } }`;
+            try {
+                const data = await fetchAPI(query, { userId, mediaIds: batch });
+                if (data.Page && data.Page.mediaList) allEntries.push(...data.Page.mediaList);
+            } catch (e) { }
+        }
+        return allEntries;
+    }
+
+    function calProcessCalendarData(activities, officialDates, year, month) {
+        const daysInMonth = new Date(year, month + 1, 0).getDate();
+        const data = {}; 
+        let totalChapters = 0, totalTitles = new Set(), totalStarted = 0, totalFinished = 0;
+        
+        for (let i = 1; i <= daysInMonth; i++) {
+            data[i] = { entries: {}, summary: { chapters: 0, titles: 0, started: 0, finished: 0 }, isFuture: false };
+            if (year > calRealDate.getFullYear() || (year === calRealDate.getFullYear() && month > calRealDate.getMonth()) || (year === calRealDate.getFullYear() && month === calRealDate.getMonth() && i > calRealDate.getDate())) {
+                data[i].isFuture = true;
+            }
+        }
+        
+        officialDates.forEach(entry => {
+            if (!entry.media) return;
+            const mId = entry.media.id, type = entry.media.type, title = entry.media.title.english || entry.media.title.userPreferred, coverUrl = entry.media.coverImage.large;
+            const totalSeriesChapters = (type === 'ANIME' ? entry.media.episodes : entry.media.chapters) || entry.progress || 0;
+            const isSameDay = entry.startedAt?.year === entry.completedAt?.year && entry.startedAt?.month === entry.completedAt?.month && entry.startedAt?.day === entry.completedAt?.day && entry.startedAt?.day != null;
+            
+            const createEntryIfMissing = (day) => { 
+                if (!data[day].entries[mId]) { 
+                    data[day].entries[mId] = { id: mId, type, title, coverUrl, chaptersRead: 0, isStarted: false, isCompleted: false, maxProgress: 0, totalSeriesChapters, officialSameDay: isSameDay, officialStartDay: false, isReread: false }; 
+                } 
+            };
+            
+            if (entry.startedAt && entry.startedAt.year === year && entry.startedAt.month === month + 1 && entry.startedAt.day) {
+                const day = entry.startedAt.day;
+                if (!data[day].isFuture) { 
+                    createEntryIfMissing(day); 
+                    data[day].entries[mId].isStarted = true; 
+                    data[day].entries[mId].officialSameDay = isSameDay; 
+                    data[day].entries[mId].officialStartDay = true;
+                }
+            }
+            if (entry.completedAt && entry.completedAt.year === year && entry.completedAt.month === month + 1 && entry.completedAt.day) {
+                const day = entry.completedAt.day;
+                if (!data[day].isFuture) { 
+                    createEntryIfMissing(day); 
+                    data[day].entries[mId].isCompleted = true; 
+                    data[day].entries[mId].officialSameDay = isSameDay; 
+                    data[day].entries[mId].totalSeriesChapters = Math.max(data[day].entries[mId].totalSeriesChapters, totalSeriesChapters); 
+                }
+            }
+        });
+        
+        const chronologicalActs = activities.slice().sort((a,b) => a.createdAt - b.createdAt);
+        let stateTracker = {};
+        
+        chronologicalActs.forEach(act => {
+            const day = new Date(act.createdAt * 1000).getDate();
+            if (!data[day] || data[day].isFuture) return;
+            const mId = act.media.id, type = act.media.type, title = act.media.title.english || act.media.title.userPreferred, progressStr = act.progress ? String(act.progress) : "", statusStr = (act.status || "").toLowerCase();
+            
+            if (!stateTracker[mId]) {
+                stateTracker[mId] = { lastProgress: -1, chaptersLoggedThisMonth: 0, wasStartedThisMonth: false, hasSeenExplicitProgress: false };
+            }
+            if (!data[day].entries[mId]) { 
+                data[day].entries[mId] = { id: mId, type, title, coverUrl: act.media.coverImage.large, chaptersRead: 0, isStarted: false, isCompleted: false, maxProgress: 0, totalSeriesChapters: (type === 'ANIME' ? act.media.episodes : act.media.chapters) || 0, officialSameDay: false, officialStartDay: false, isReread: false, activityId: act.id }; 
+            }
+            
+            const dayEntry = data[day].entries[mId];
+            dayEntry.activityId = act.id;
+            
+            if (statusStr.includes('started') || (statusStr.includes('added') && statusStr.includes('reading')) || (statusStr.includes('added') && statusStr.includes('watching'))) {
+                dayEntry.isStarted = true;
+                stateTracker[mId].wasStartedThisMonth = true;
+            }
+            if (statusStr.includes('completed')) dayEntry.isCompleted = true;
+            
+            let isGenuinelyNew = (stateTracker[mId].wasStartedThisMonth || dayEntry.officialStartDay) && !stateTracker[mId].hasSeenExplicitProgress;
+            
+            let chsAdded = 0, currentProgress = -1;
+            let rangeMatch = progressStr.match(/(\d+)\s*-\s*(\d+)/), singleMatch = progressStr.match(/^(\d+)$/);
+            
+            if (rangeMatch) { 
+                currentProgress = parseInt(rangeMatch[2]); 
+                if (isGenuinelyNew && currentProgress > 0) {
+                    chsAdded = currentProgress; 
+                } else if (stateTracker[mId].lastProgress !== -1 && currentProgress > stateTracker[mId].lastProgress) {
+                    chsAdded = currentProgress - stateTracker[mId].lastProgress;
+                } else {
+                    chsAdded = parseInt(rangeMatch[2]) - parseInt(rangeMatch[1]) + 1; 
+                }
+            }
+            else if (singleMatch) { 
+                currentProgress = parseInt(singleMatch[1]); 
+                if (isGenuinelyNew && currentProgress > 0) {
+                    chsAdded = currentProgress;
+                } else if (stateTracker[mId].lastProgress !== -1 && currentProgress > stateTracker[mId].lastProgress) { 
+                    chsAdded = currentProgress - stateTracker[mId].lastProgress; 
+                } else { 
+                    chsAdded = 1; 
+                } 
+            }
+            else if (progressStr === "") { 
+                let txtSingle = statusStr.match(/(?:chapter|episode)s?\s+(\d+)/i); 
+                if (txtSingle) { 
+                    currentProgress = parseInt(txtSingle[1]); 
+                    if (isGenuinelyNew && currentProgress > 0) {
+                        chsAdded = currentProgress;
+                    } else if (stateTracker[mId].lastProgress !== -1 && currentProgress > stateTracker[mId].lastProgress) {
+                        chsAdded = currentProgress - stateTracker[mId].lastProgress;
+                    } else {
+                        chsAdded = 1;
+                    }
+                } else if (statusStr.includes('completed')) {
+                    let total = dayEntry.totalSeriesChapters || 0;
+                    if (total > 0) {
+                        currentProgress = total;
+                        if (isGenuinelyNew) {
+                            chsAdded = total;
+                        } else if (stateTracker[mId].lastProgress !== -1 && total >= stateTracker[mId].lastProgress) {
+                            chsAdded = total - stateTracker[mId].lastProgress;
+                        } else if (stateTracker[mId].wasStartedThisMonth) {
+                            let remaining = total - stateTracker[mId].chaptersLoggedThisMonth;
+                            chsAdded = Math.max(1, remaining);
+                        } else {
+                            chsAdded = 1;
+                        }
+                    }
+                }
+            }
+
+            if (dayEntry.isStarted && currentProgress > 0 && !stateTracker[mId].hasSeenExplicitProgress) {
+                chsAdded = Math.max(chsAdded, currentProgress);
+            }
+            
+            dayEntry.maxProgress = Math.max(dayEntry.maxProgress, currentProgress); 
+            dayEntry.chaptersRead += chsAdded;
+            
+            if (currentProgress > 0) {
+                stateTracker[mId].hasSeenExplicitProgress = true;
+            }
+            if (currentProgress !== -1) stateTracker[mId].lastProgress = currentProgress;
+            stateTracker[mId].chaptersLoggedThisMonth += chsAdded;
+        });
+        
+        let mangaMonthlyTotal = {};
+        for (let day = 1; day <= daysInMonth; day++) {
+            if (data[day].isFuture) continue;
+            let titlesToday = Object.values(data[day].entries); 
+            let dChapters = 0, dStarted = 0, dFinished = 0;
+            
+            titlesToday.forEach(e => {
+                if (!mangaMonthlyTotal[e.id]) mangaMonthlyTotal[e.id] = 0;
+                
+                mangaMonthlyTotal[e.id] += e.chaptersRead;
+                
+                if (e.type !== 'ANIME') {
+                    dChapters += e.chaptersRead; 
+                    if (e.isStarted) { dStarted++; totalStarted++; } 
+                    if (e.isCompleted) { dFinished++; totalFinished++; }
+                    if (e.chaptersRead > 0 || e.isStarted || e.isCompleted) { totalChapters += e.chaptersRead; totalTitles.add(e.title); }
+                }
+            });
+            
+            titlesToday = titlesToday.filter(e => e.chaptersRead > 0 || e.isStarted || e.isCompleted);
+            titlesToday.sort((a, b) => b.chaptersRead - a.chaptersRead);
+            let dTitles = titlesToday.filter(e => e.type !== 'ANIME').length;
+            data[day].entriesList = titlesToday; 
+            data[day].summary = { chapters: dChapters, titles: dTitles, started: dStarted, finished: dFinished };
+        }
+        return { days: data, stats: { chapters: totalChapters, titles: totalTitles.size, started: totalStarted, finished: totalFinished } };
+    }
+
+    async function calLoadAndRender() {
+        const syncBtn = document.getElementById('cal-sync-btn');
+        const syncBtnMobile = document.getElementById('cal-sync-btn-mobile');
+        try {
+            const username = document.getElementById('cal-username').value.trim(); 
+            if (!username) return;
+            
+            syncBtn.innerText = "Syncing..."; syncBtn.disabled = true; 
+            if(syncBtnMobile) { syncBtnMobile.innerText = "Syncing..."; syncBtnMobile.disabled = true; }
+            
+            calSetStatus(`Fetching user profile...`); await calSleep(50);
+            
+            const currentCacheKey = `${calCurrentYear}_${calCurrentMonth}`; 
+            const userData = await calGetUserData(username); 
+            
+            let cached = await getMonthFromDB(currentCacheKey);
+            let startOfFetch = Math.floor(new Date(calCurrentYear, calCurrentMonth, 1).getTime() / 1000);
+            const currentUnix = Math.floor(calRealDate.getTime() / 1000);
+            
+            let isDelta = false;
+            if (cached && cached.lastSyncUnix && cached.rawActivities && cached.officialDates) {
+                startOfFetch = cached.lastSyncUnix;
+                isDelta = true;
+            }
+
+            calSetStatus(isDelta ? `Scanning for new activity...` : `Scanning activity feed...`); await calSleep(50);
+            const rawActivities = await calFetchMonthActivities(userData.id, calCurrentYear, calCurrentMonth, startOfFetch);
+            
+            let combinedActivities = [];
+            let combinedOfficialDates = [];
+
+            if (isDelta) {
+                let actMap = new Map();
+                cached.rawActivities.forEach(a => actMap.set(a.id, a));
+                rawActivities.forEach(a => actMap.set(a.id, a));
+                combinedActivities = Array.from(actMap.values());
+                
+                const uniqueMediaIds = [...new Set(rawActivities.map(act => act.media.id))];
+                let newOfficialDates = [];
+                if (uniqueMediaIds.length > 0) {
+                    calSetStatus(`Pulling official dates for ${uniqueMediaIds.length} new titles...`); await calSleep(50);
+                    newOfficialDates = await calFetchOfficialListDates(userData.id, uniqueMediaIds);
+                }
+                
+                let odMap = new Map();
+                cached.officialDates.forEach(d => odMap.set(d.media.id, d));
+                newOfficialDates.forEach(d => odMap.set(d.media.id, d));
+                combinedOfficialDates = Array.from(odMap.values());
+            } else {
+                combinedActivities = rawActivities;
+                const uniqueMediaIds = [...new Set(rawActivities.map(act => act.media.id))]; 
+                if (uniqueMediaIds.length > 0) {
+                    calSetStatus(`Pulling official dates for ${uniqueMediaIds.length} titles...`); await calSleep(50);
+                    combinedOfficialDates = await calFetchOfficialListDates(userData.id, uniqueMediaIds); 
+                }
+            }
+            
+            calSetStatus(`Crunching statistics...`); await calSleep(50);
+            const processed = calProcessCalendarData(combinedActivities, combinedOfficialDates, calCurrentYear, calCurrentMonth);
+            
+            calGlobalCache[currentCacheKey] = { 
+                id: currentCacheKey,
+                processed: processed, 
+                allTimeChapters: 0, 
+                allTimeTitles: 0,
+                lastSyncUnix: currentUnix,
+                rawActivities: combinedActivities,
+                officialDates: combinedOfficialDates
+            };
+            
+            calRecalculateHistoricBanners(userData.liveChapters, userData.liveTitles); 
+            await saveMonthToDB(currentCacheKey, calGlobalCache[currentCacheKey]);
+            calRenderUI(calGlobalCache[currentCacheKey]); 
+            calSetStatus("");
+        } catch (err) { 
+            calSetStatus(""); 
+            alert(`Error: ${err.message}\n\nPlease check your username.`); 
+        } finally { 
+            syncBtn.innerText = "Sync"; syncBtn.disabled = false; 
+            if(syncBtnMobile) { syncBtnMobile.innerText = "Sync"; syncBtnMobile.disabled = false; }
+        }
+    }
+
+    function calTranslateEntireCache(a) {
+        const tM = {};
+        a.forEach(e => {
+            if (!e.media) return; 
+            const i = e.media.id, t = e.media.type, en = e.media.title.english || e.media.title.userPreferred;
+            tM[i] = { title: en, type: t }; 
+            const rom = e.media.title.romaji, pref = e.media.title.userPreferred;
+            if (rom) tM[rom] = { title: en, type: t }; if (pref) tM[pref] = { title: en, type: t };
+        });
+        
+        for (const k in calGlobalCache) {
+            const p = calGlobalCache[k].processed; if (!p) continue;
+            const nS = new Set(); const days = p.days;
+            for (let day in days) {
+                const dD = days[day]; if (!dD || !dD.entries) continue;
+                for (let eK in dD.entries) {
+                    const eO = dD.entries[eK]; const lookupId = eO.id || eK; const mappedData = tM[lookupId] || tM[eO.title];
+                    if (mappedData) { eO.title = mappedData.title; eO.type = mappedData.type; }
+                }
+                if (dD.entriesList) {
+                    dD.entriesList.forEach(e => {
+                        const lookupId = e.id || e.title; const mappedData = tM[lookupId] || tM[e.title];
+                        if (mappedData) { e.title = mappedData.title; e.type = mappedData.type; }
+                        if (e.type !== 'ANIME' && (e.chaptersRead > 0 || e.isStarted || e.isCompleted)) nS.add(e.title);
+                    });
+                }
+            }
+            p.stats.titles = nS.size;
+        }
+    }
+
+    function calRecalculateHistoricBanners(liveChapters, liveTitles) {
+        const keys = Object.keys(calGlobalCache).filter(k => k.includes('_')).sort((a, b) => { 
+            const [aY, aM] = a.split('_').map(Number); const [bY, bM] = b.split('_').map(Number); 
+            return (aY * 12 + aM) - (bY * 12 + bM); 
+        });
+        if (keys.length === 0) return;
+        if (liveChapters !== undefined && liveTitles !== undefined) { 
+            const newestKey = keys[keys.length - 1]; 
+            calGlobalCache[newestKey].allTimeChapters = liveChapters; 
+            calGlobalCache[newestKey].allTimeTitles = liveTitles; 
+        }
+        for (let i = keys.length - 1; i > 0; i--) {
+            const currentKey = keys[i], prevKey = keys[i - 1]; 
+            const currentData = calGlobalCache[currentKey], prevData = calGlobalCache[prevKey];
+            prevData.allTimeChapters = Math.max(0, (currentData.allTimeChapters || 0) - (currentData.processed.stats.chapters || 0));
+            prevData.allTimeTitles = Math.max(0, (currentData.allTimeTitles || 0) - (currentData.processed.stats.started || 0));
+        }
+    }
+
+    // --- Rendering UI & Charts ---
+    function calRenderUI(dataBlock) {
+        const calendarEl = document.getElementById('cal-grid'); calendarEl.innerHTML = '';
+        
+        calWeekdays.forEach(day => { 
+            const head = document.createElement('div'); head.className = 'weekday-header'; head.innerText = day; calendarEl.appendChild(head); 
+        });
+        
+        const firstDayIndex = new Date(calCurrentYear, calCurrentMonth, 1).getDay(); 
+        const daysInMonth = new Date(calCurrentYear, calCurrentMonth + 1, 0).getDate();
+        for (let i = 0; i < firstDayIndex; i++) { 
+            const emptyCell = document.createElement('div'); 
+            emptyCell.className = "day-column empty-grid-cell";
+            calendarEl.appendChild(emptyCell); 
+        }
+        
+        if (!dataBlock) {
+            document.getElementById('cal-total-chapters').innerText = "0"; 
+            document.getElementById('cal-total-titles').innerText = "0"; 
+            document.getElementById('cal-total-started').innerText = "0"; 
+            document.getElementById('cal-total-finished').innerText = "0"; 
+            document.getElementById('cal-alltime-chapters').innerText = "-"; 
+            document.getElementById('cal-alltime-titles').innerText = "-"; 
+            calRenderTimelineChart(null); 
+            if (calMonthlyChartInstance) calMonthlyChartInstance.destroy(); 
+            return;
+        }
+        
+        const processed = dataBlock.processed;
+        document.getElementById('cal-total-chapters').innerText = processed.stats.chapters; 
+        document.getElementById('cal-total-titles').innerText = processed.stats.titles; 
+        document.getElementById('cal-total-started').innerText = processed.stats.started; 
+        document.getElementById('cal-total-finished').innerText = processed.stats.finished; 
+        document.getElementById('cal-alltime-chapters').innerText = Math.max(0, dataBlock.allTimeChapters || 0).toLocaleString(); 
+        document.getElementById('cal-alltime-titles').innerText = Math.max(0, dataBlock.allTimeTitles || 0).toLocaleString();
+        
+        for (let day = 1; day <= daysInMonth; day++) {
+            const dayData = processed.days[day]; 
+            const dayDiv = document.createElement('div');
+            let classes = 'day-column glass';
+            
+            const hasEntries = dayData.entriesList && dayData.entriesList.length > 0;
+            
+            if (dayData.isFuture) classes += ' future'; 
+            else if (!hasEntries) classes += ' empty'; 
+            else classes += ' has-entries';
+            
+            dayDiv.className = classes; 
+            
+            let startedNames = [], finishedNames = [];
+            if (dayData.entriesList) { 
+                dayData.entriesList.forEach(e => { if (e.type !== 'ANIME') { if (e.isStarted) startedNames.push(e.title); if (e.isCompleted) finishedNames.push(e.title); } }); 
+            }
+            
+            const startedAttr = encodeURIComponent(JSON.stringify(startedNames)); 
+            const finishedAttr = encodeURIComponent(JSON.stringify(finishedNames));
+            
+            const dayOfWeekStr = calWeekdays[new Date(calCurrentYear, calCurrentMonth, day).getDay()];
+            
+            const renderEntry = (e, dx) => {
+                const cA = e.activityId ? `onclick="window.open('https://anilist.co/activity/${e.activityId}','_blank')"` : (e.id ? `onclick="window.open('https://anilist.co/${e.type === 'ANIME' ? 'anime' : 'manga'}/${e.id}','_blank')"` : '');
+                let u1 = e.type === 'ANIME' ? 'Ep' : 'Ch', u2 = e.type === 'ANIME' ? 'Eps' : 'Chs', rn = '';
+                let mainLabel = '';
+
+                if (e.chaptersRead === 0) {
+                    if (e.isStarted && !e.isCompleted) {
+                        mainLabel = `<em style="cursor:text; font-size: 11px;" title="Starting Date">Starting Date</em>`;
+                    } else if (e.isCompleted) {
+                        mainLabel = `<em style="cursor:text; font-size: 11px;" title="Completed">Completed</em>`;
+                    } else {
+                        mainLabel = `<em style="cursor:text; font-size: 11px;">Logged</em>`;
+                    }
+                } else {
+                    mainLabel = `<em onclick="event.stopPropagation();calEditChapters('${calCurrentYear}_${calCurrentMonth}',${dx},'${e.id}',event)" style="cursor:text;" title="Click to manually edit chapters">+${e.chaptersRead} ${e.chaptersRead === 1 ? u1 : u2}</em>`;
+                    
+                    if (e.maxProgress > 0) {
+                        let st = e.maxProgress - e.chaptersRead + 1;
+                        if (e.chaptersRead === 1) rn = `<br><span style="color:#ccc;font-size:10px;font-style:normal;display:block;margin-top:2px;line-height:1;">${u1} ${e.maxProgress}</span>`;
+                        else rn = `<br><span style="color:#ccc;font-size:10px;font-style:normal;display:block;margin-top:2px;line-height:1;">${u1} ${Math.max(1, st)}-${e.maxProgress}</span>`;
+                    }
+                }
+
+                return `<div class="cal-entry-card ${e.id || e.activityId ? 'clickable' : ''}" ${cA}><div class="cal-entry-cover-wrapper">${e.isCompleted ? `<div class="cal-heart-icon" title="Finished Today">✦</div>` : ''}<img src="${e.coverUrl}" alt="Cover" class="cal-entry-cover" loading="lazy"></div><div class="cal-entry-details"><span class="cal-entry-title ${e.isStarted ? 'started' : ''}">${e.title}</span><span class="cal-entry-chapter ${e.type === 'ANIME' ? 'anime' : ''} ${e.isReread ? 'reread' : ''}">${mainLabel}${rn}</span></div></div>`;
+            };
+
+            let firstEntryHtml = '';
+            let restEntriesHtml = '';
+            
+            if (hasEntries) {
+                firstEntryHtml = `<div class="first-entry-wrapper">${renderEntry(dayData.entriesList[0], day)}</div>`;
+                for (let i = 1; i < dayData.entriesList.length; i++) {
+                    restEntriesHtml += renderEntry(dayData.entriesList[i], day);
+                }
+            }
+
+            let html = `
+                <div class="day-top-row">
+                    <span class="mobile-weekday">${dayOfWeekStr}</span>
+                    <span class="date-number">${day}</span>
+                    ${dayData.entriesList && dayData.entriesList.length > 1 ? `<div class="expand-icon">▼</div>` : ''}
+                </div>
+                <div class="day-content-area">
+                    ${!dayData.isFuture && hasEntries ? `
+                    <div class="day-stats-grid">
+                        <div class="stat-badge chapters" title="Chapters"><span>${dayData.summary.chapters}</span></div>
+                        <div class="stat-badge titles" title="Titles"><span>${dayData.summary.titles}</span></div>
+                        <div class="stat-badge started ${dayData.summary.started > 0 ? 'clickable' : ''}" data-titles="${startedAttr}" title="Started"><span>${dayData.summary.started}</span></div>
+                        <div class="stat-badge finished ${dayData.summary.finished > 0 ? 'clickable' : ''}" data-titles="${finishedAttr}" title="Finished"><span>${dayData.summary.finished}</span></div>
+                    </div>` : ''}
+                    
+                    ${firstEntryHtml}
+                    ${restEntriesHtml ? `<div class="entries-dropdown">${restEntriesHtml}</div>` : ''}
+                    ${(!hasEntries && !dayData.isFuture) ? `<div class="empty-state-text show">Nothing planned</div>` : ''}
+                </div>
+                ${!dayData.isFuture && hasEntries ? `
+                <div class="mobile-day-stats mobile-only">
+                    <span class="ch">${dayData.summary.chapters}</span>
+                    <span class="tt">${dayData.summary.titles}</span>
+                    <span class="st">${dayData.summary.started}</span>
+                    <span class="fn">${dayData.summary.finished}</span>
+                </div>` : ''}
+            `;
+            
+            dayDiv.innerHTML = html;
+            
+            if (!dayData.isFuture && hasEntries) {
+                dayDiv.addEventListener('click', function (e) {
+                    if (e.target.closest('.cal-entry-card.clickable') || e.target.closest('em')) return;
+                    const badge = e.target.closest('.stat-badge.started.clickable, .stat-badge.finished.clickable');
+                    if (badge) {
+                        const titlesData = badge.getAttribute('data-titles');
+                        if (titlesData) { 
+                            const titles = JSON.parse(decodeURIComponent(titlesData)); 
+                            if (titles.length > 0) { 
+                                const type = badge.classList.contains('started') ? 'Started' : 'Finished'; 
+                                alert(`${type} on Day ${day}:\n\n- ${titles.join('\n- ')}`); 
+                            } 
+                        } return;
+                    }
+                    this.classList.toggle('expanded');
+                });
+            }
+            calendarEl.appendChild(dayDiv);
+        }
+        
+        const styleBlock = document.createElement('style');
+        styleBlock.innerHTML = `@media(max-width:768px){.empty-grid-cell{display:none!important;}}`;
+        calendarEl.appendChild(styleBlock);
+
+        calRenderTimelineChart(processed); 
+        calRenderMonthlyChart();
+    }
+
+    window.calEditChapters = async function (cacheKey, day, entryId, e) {
+        e.preventDefault(); e.stopPropagation();
+        let entry = calGlobalCache[cacheKey].processed.days[day].entriesList.find(x => x.id == entryId); 
+        if (!entry) return;
+        let newVal = prompt(`Edit chapters read for ${entry.title} on Day ${day}:`, entry.chaptersRead);
+        if (newVal !== null && !isNaN(newVal) && newVal.trim() !== '') {
+            entry.chaptersRead = parseInt(newVal); let dChaps = 0;
+            calGlobalCache[cacheKey].processed.days[day].entriesList.forEach(x => { if (x.type !== 'ANIME') dChaps += x.chaptersRead; });
+            calGlobalCache[cacheKey].processed.days[day].summary.chapters = dChaps; 
+            await saveMonthToDB(cacheKey, calGlobalCache[cacheKey]);
+            calRenderUI(calGlobalCache[cacheKey]);
+        }
+    };
+
+    function calRenderTimelineChart(processed) {
+        const ctx = document.getElementById('calActivityChart')?.getContext('2d'); 
+        if(!ctx) return;
+        if (calActivityChartInstance) calActivityChartInstance.destroy(); 
+        if (!processed) return;
+        
+        const daysInMonth = new Date(calCurrentYear, calCurrentMonth + 1, 0).getDate(); 
+        const labels = [], chaptersData = [], startedData = [], finishedData = [];
+        for (let day = 1; day <= daysInMonth; day++) {
+            labels.push(day);
+            if (processed.days[day] && !processed.days[day].isFuture) { 
+                chaptersData.push(processed.days[day].summary.chapters); 
+                startedData.push(processed.days[day].summary.started); 
+                finishedData.push(processed.days[day].summary.finished); 
+            } else { 
+                chaptersData.push(0); startedData.push(0); finishedData.push(0); 
+            }
+        }
+        
+        let maxChapters = Math.max(...chaptersData, 2); let maxTitles = Math.max(...startedData, ...finishedData, 1);
+        let chapterScaleMax = Math.ceil(maxChapters * 1.1); let titleScaleMax = Math.ceil(maxTitles * 2.2);
+        
+        calActivityChartInstance = new Chart(ctx, {
+            type: 'line', 
+            data: { 
+                labels: labels, 
+                datasets: [
+                    { label: 'Chapters Read', data: chaptersData, borderColor: '#00b0ff', backgroundColor: 'rgba(0, 176, 255, 0.15)', yAxisID: 'y-chapters', fill: true, tension: .3, borderWidth: 2, pointRadius: 3, pointBackgroundColor: '#00b0ff' }, 
+                    { label: 'Titles Started', data: startedData, borderColor: '#69f0ae', backgroundColor: '#69f0ae', yAxisID: 'y-titles', type: 'bar', barPercentage: .5, borderRadius: 4 }, 
+                    { label: 'Titles Finished', data: finishedData, borderColor: '#b39ddb', backgroundColor: '#b39ddb', yAxisID: 'y-titles', type: 'bar', barPercentage: .5, borderRadius: 4 }
+                ] 
+            },
+            options: { 
+                responsive: true, 
+                maintainAspectRatio: false, 
+                interaction: { mode: 'index', intersect: false }, 
+                scales: { 
+                    x: { grid: { color: 'rgba(255, 255, 255, 0.05)' }, ticks: { color: '#9fadbd' } }, 
+                    'y-chapters': { type: 'linear', display: true, position: 'left', max: chapterScaleMax, title: { display: true, text: 'Chapters Read', color: '#00b0ff', font: { weight: 'bold' } }, grid: { color: 'rgba(255, 255, 255, 0.05)' }, ticks: { color: '#9fadbd', precision: 0 }, beginAtZero: true }, 
+                    'y-titles': { type: 'linear', display: true, position: 'right', max: titleScaleMax, title: { display: true, text: 'Titles (Started/Finished)', color: '#e3e5e8', font: { weight: 'bold' } }, grid: { drawOnChartArea: false }, ticks: { color: '#9fadbd', precision: 0 }, beginAtZero: true } 
+                }, 
+                plugins: { 
+                    legend: { labels: { color: '#e3e5e8', font: { family: "'Inter', sans-serif" } } }, 
+                    tooltip: { backgroundColor: 'rgba(20, 20, 20, 0.95)', titleColor: '#fff', bodyColor: '#e3e5e8', borderColor: 'rgba(255, 255, 255, 0.1)', borderWidth: 1, padding: 10 } 
+                } 
+            }
+        });
+    }
+
+    function calRenderMonthlyChart() {
+        const ctx = document.getElementById('calMonthlyChart')?.getContext('2d'); 
+        if(!ctx) return;
+        if (calMonthlyChartInstance) calMonthlyChartInstance.destroy();
+        
+        const viewScore = calCurrentYear * 12 + calCurrentMonth;
+        const validKeys = Object.keys(calGlobalCache).filter(k => k.includes('_')).filter(k => { 
+            const [y, m] = k.split('_').map(Number); return (y * 12 + m) <= viewScore; 
+        }).sort((a, b) => { 
+            const [aY, aM] = a.split('_').map(Number); const [bY, bM] = b.split('_').map(Number); return (aY * 12 + aM) - (bY * 12 + bM); 
+        });
+        
+        if (validKeys.length === 0) return;
+        
+        const labels = [], monthlyData = [], cumulativeData = [];
+        validKeys.forEach(key => {
+            const [y, m] = key.split('_').map(Number); const shortYear = String(y).slice(-2); labels.push(`${calMonthNames[m].substring(0, 3)} '${shortYear}`);
+            const data = calGlobalCache[key]; monthlyData.push(data.processed.stats.chapters || 0); cumulativeData.push(data.allTimeChapters || 0);
+        });
+        
+        calMonthlyChartInstance = new Chart(ctx, {
+            data: { 
+                labels: labels, 
+                datasets: [
+                    { type: 'line', label: 'Total Chapters', data: cumulativeData, borderColor: '#f39c12', backgroundColor: 'rgba(243, 156, 18, 0.1)', yAxisID: 'y-cumulative', fill: true, tension: .3, borderWidth: 3, pointRadius: 4, pointBackgroundColor: '#f39c12' }, 
+                    { type: 'bar', label: 'Monthly Chapters', data: monthlyData, backgroundColor: '#00b0ff', yAxisID: 'y-monthly', borderRadius: 4 }
+                ] 
+            },
+            options: { 
+                responsive: true, 
+                maintainAspectRatio: false, 
+                interaction: { mode: 'index', intersect: false }, 
+                scales: { 
+                    x: { grid: { color: 'rgba(255, 255, 255, 0.05)' }, ticks: { color: '#9fadbd', font: { weight: 'bold' } } }, 
+                    'y-monthly': { type: 'linear', display: true, position: 'left', title: { display: true, text: 'Monthly Chapters', color: '#00b0ff', font: { weight: 'bold' } }, grid: { color: 'rgba(255, 255, 255, 0.05)' }, ticks: { color: '#9fadbd', precision: 0 }, beginAtZero: true }, 
+                    'y-cumulative': { type: 'linear', display: true, position: 'right', title: { display: true, text: 'Total Chapters', color: '#ffffff', font: { weight: 'bold' } }, grid: { drawOnChartArea: false }, ticks: { color: '#9fadbd', precision: 0 }, beginAtZero: false } 
+                }, 
+                plugins: { 
+                    legend: { labels: { color: '#e3e5e8', font: { family: "'Inter', sans-serif" } } }, 
+                    tooltip: { backgroundColor: 'rgba(20, 20, 20, 0.95)', titleColor: '#fff', bodyColor: '#e3e5e8', borderColor: 'rgba(255, 255, 255, 0.1)', borderWidth: 1, padding: 10, callbacks: { label: function (context) { return context.dataset.label + ': ' + context.parsed.y.toLocaleString(); } } } 
+                } 
+            }
+        });
+    }
+
+    // --- Advanced Stats ---
+    function getWeekInfo(date) {
+        let d = new Date(date.getTime()); d.setHours(0, 0, 0, 0); let dayOfWeek = d.getDay();
+        let sun = new Date(d.getTime() - dayOfWeek * 86400000); let sat = new Date(sun.getTime() + 6 * 86400000); let pad = n => String(n).padStart(2, '0');
+        let label = `${pad(sun.getMonth() + 1)}/${pad(sun.getDate())}/${String(sun.getFullYear()).slice(-2)}-${pad(sat.getMonth() + 1)}/${pad(sat.getDate())}/${String(sat.getFullYear()).slice(-2)}`;
+        return { label: label, startDay: sun.getDate(), startMonth: sun.getMonth(), startYear: sun.getFullYear(), daysArray: Array.from({ length: 7 }, (_, i) => new Date(sun.getTime() + i * 86400000).getDate()) };
+    }
+
+    function calUpdateAdvancedStats() {
+        let gChapters = 0, gTitles = new Set(), gStarted = 0, gFinished = 0; 
+        let yChapters = 0, yTitles = new Set(), yStarted = 0, yFinished = 0;
+        
+        for (let key in calGlobalCache) {
+            if (!key.includes('_')) continue; 
+            let [y, m] = key.split('_').map(Number); 
+            let data = calGlobalCache[key].processed; 
+            if (!data) continue;
+            
+            for (let day in data.days) {
+                let d = data.days[day]; if (!d.entriesList) continue;
+                d.entriesList.forEach(e => {
+                    if (e.type !== 'ANIME') {
+                        let titleKey = e.id || e.title; 
+                        gChapters += e.chaptersRead; gTitles.add(titleKey); 
+                        if (e.isStarted) gStarted++; if (e.isCompleted) gFinished++;
+                        if (y === calCurrentYear) { yChapters += e.chaptersRead; yTitles.add(titleKey); if (e.isStarted) yStarted++; if (e.isCompleted) yFinished++; }
+                    }
+                });
+            }
+        }
+        
+        if ($('cal-adv-g-chap')) $('cal-adv-g-chap').innerText = gChapters.toLocaleString();
+        if ($('cal-adv-g-tit')) $('cal-adv-g-tit').innerText = gTitles.size.toLocaleString();
+        if ($('cal-adv-g-start')) $('cal-adv-g-start').innerText = gStarted.toLocaleString();
+        if ($('cal-adv-g-fin')) $('cal-adv-g-fin').innerText = gFinished.toLocaleString();
+        if ($('cal-adv-y-label')) $('cal-adv-y-label').innerText = `${calCurrentYear} Stats`;
+        if ($('cal-adv-y-chap')) $('cal-adv-y-chap').innerText = yChapters.toLocaleString();
+        if ($('cal-adv-y-tit')) $('cal-adv-y-tit').innerText = yTitles.size.toLocaleString();
+        if ($('cal-adv-y-start')) $('cal-adv-y-start').innerText = yStarted.toLocaleString();
+        if ($('cal-adv-y-fin')) $('cal-adv-y-fin').innerText = yFinished.toLocaleString();
+    }
+
+    function calOpenAdvModal() {
+        calUpdateAdvancedStats(); 
+        let allDays = [];
+        
+        for (let k in calGlobalCache) {
+            if (!k.includes('_')) continue; 
+            let [y, m] = k.split('_').map(Number); 
+            let days = calGlobalCache[k].processed?.days; 
+            if (!days) continue;
+            
+            for (let d in days) {
+                if (!days[d].entriesList) continue; 
+                let dayChaps = 0, dayStart = 0, dayFin = 0;
+                days[d].entriesList.forEach(e => { 
+                    if (e.type === 'ANIME') return; 
+                    dayChaps += e.chaptersRead || 0; 
+                    dayStart += e.isStarted ? 1 : 0; 
+                    dayFin += e.isCompleted ? 1 : 0; 
+                });
+                if (dayChaps > 0 || dayStart > 0 || dayFin > 0) { 
+                    allDays.push({ y, m, d: parseInt(d), ts: new Date(y, m, parseInt(d)).getTime(), chaps: dayChaps, start: dayStart, fin: dayFin }); 
+                }
+            }
+        }
+        
+        allDays.sort((a, b) => a.ts - b.ts);
+        
+        let lb = { chapters: { years: {}, months: {}, weeks: {}, days: {}, streaks: [] }, started: { years: {}, months: {}, weeks: {}, days: {}, streaks: [] }, finished: { years: {}, months: {}, weeks: {}, days: {}, streaks: [] } };
+        let pad = n => String(n).padStart(2, '0');
+        
+        allDays.forEach(day => {
+            let dateStr = `${pad(day.m + 1)}/${pad(day.d)}/${String(day.y).slice(-2)}`, monthStr = `${calMonthNames[day.m].substring(0,3)} ${day.y}`, yearStr = `${day.y}`, dt = new Date(day.y, day.m, day.d), wInfo = getWeekInfo(dt), weekStr = wInfo.label;
+            ['chapters', 'started', 'finished'].forEach(m => {
+                let v = m === 'chapters' ? day.chaps : (m === 'started' ? day.start : day.fin);
+                if (v > 0) {
+                    if (!lb[m].days[dateStr]) lb[m].days[dateStr] = { val: 0, y: day.y, m: day.m, d: day.d }; lb[m].days[dateStr].val += v;
+                    if (!lb[m].weeks[weekStr]) lb[m].weeks[weekStr] = { val: 0, y: wInfo.startYear, m: wInfo.startMonth, days: wInfo.daysArray }; lb[m].weeks[weekStr].val += v;
+                    if (!lb[m].months[monthStr]) lb[m].months[monthStr] = { val: 0, y: day.y, m: day.m }; lb[m].months[monthStr].val += v;
+                    if (!lb[m].years[yearStr]) lb[m].years[yearStr] = { val: 0, y: day.y }; lb[m].years[yearStr].val += v;
+                }
+            });
+        });
+        
+        ['chapters', 'started', 'finished'].forEach(m => {
+            let currentStreak = 0; let currentStart = null; let currentEnd = null; let lastTs = 0;
+            let addStreak = () => { 
+                if (currentStreak > 0) { 
+                    let sStr = `${pad(currentStart.m + 1)}/${pad(currentStart.d)}/${String(currentStart.y).slice(-2)}`, eStr = `${pad(currentEnd.m + 1)}/${pad(currentEnd.d)}/${String(currentEnd.y).slice(-2)}`, label = currentStreak === 1 ? sStr : `${sStr} - ${eStr}`; 
+                    lb[m].streaks.push({ label: label, val: currentStreak, y: currentStart.y, m: currentStart.m, d: currentStart.d }); 
+                } 
+            };
+            
+            for (let i = 0; i < allDays.length; i++) {
+                let day = allDays[i], v = m === 'chapters' ? day.chaps : (m === 'started' ? day.start : day.fin);
+                if (v > 0) { 
+                    if (currentStreak === 0) { 
+                        currentStreak = 1; currentStart = day; currentEnd = day; lastTs = day.ts; 
+                    } else { 
+                        let diffDays = Math.round((day.ts - lastTs) / 86400000); 
+                        if (diffDays === 1) { currentStreak++; currentEnd = day; lastTs = day.ts; } 
+                        else { addStreak(); currentStreak = 1; currentStart = day; currentEnd = day; lastTs = day.ts; } 
+                    } 
+                } else { addStreak(); currentStreak = 0; }
+            }
+            addStreak();
+        });
+        
+        let sortObj = (obj) => Object.entries(obj).map(([k, v]) => ({ label: k, ...v })).sort((a, b) => b.val - a.val);
+        
+        ['chapters', 'started', 'finished'].forEach(m => { 
+            calLbData[m].years = sortObj(lb[m].years); 
+            calLbData[m].months = sortObj(lb[m].months); 
+            calLbData[m].weeks = sortObj(lb[m].weeks); 
+            calLbData[m].days = sortObj(lb[m].days); 
+            calLbData[m].streaks = lb[m].streaks.sort((a, b) => b.val - a.val); 
+        });
+        
+        calLbPageIdx = { streaks: 0, years: 0, months: 0, weeks: 0, days: 0 }; 
+        calSetLbMode('chapters');
+        $('cal-adv-overlay').style.display = 'block'; 
+        $('cal-adv-modal').style.display = 'block';
+    }
+
+    function calCloseAdvModal() { 
+        $('cal-adv-overlay').style.display = 'none'; 
+        $('cal-adv-modal').style.display = 'none'; 
+    }
+
+    function calSetLbMode(mode) {
+        calLbMode = mode;
+        ['chapters', 'started', 'finished'].forEach(m => {
+            let btn = $(`cal-lb-btn-${m}`);
+            if (btn) { 
+                if (m === mode) { btn.style.background = 'var(--accent)'; btn.style.color = '#000'; btn.style.borderColor = 'var(--accent)'; } 
+                else { btn.style.background = 'rgba(0,0,0,0.4)'; btn.style.color = 'var(--highlight)'; btn.style.borderColor = 'var(--glass-border)'; } 
+            }
+        });
+        calLbPageIdx = { streaks: 0, years: 0, months: 0, weeks: 0, days: 0 };
+        ['streaks', 'years', 'months', 'weeks', 'days'].forEach(c => calRenderLbCol(c));
+    }
+
+    function calLbPage(category, dir) {
+        let arr = calLbData[calLbMode][category], maxPage = Math.max(0, Math.ceil(arr.length / 10) - 1), newPage = calLbPageIdx[category] + dir;
+        if (newPage < 0 || newPage > maxPage) return; 
+        calLbPageIdx[category] = newPage; 
+        calRenderLbCol(category);
+    }
+
+    function calRenderLbCol(category) {
+        let listEl = $(`cal-lb-${category}-list`); 
+        if (!listEl) return;
+        
+        let arr = calLbData[calLbMode][category], page = calLbPageIdx[category], start = page * 10, slice = arr.slice(start, start + 10);
+        
+        if (slice.length === 0) { 
+            listEl.innerHTML = `<div style="text-align:center; color:var(--text-muted); font-size:11px; margin-top:20px;">No data</div>`; 
+        } else {
+            listEl.innerHTML = slice.map((item, idx) => {
+                let rank = start + idx + 1, title = item.label, val = item.val, color = 'var(--accent)', unit = category === 'streaks' ? ' days' : '';
+                let clickFn = '';
+                if (category === 'years') clickFn = `calJumpToDate(${item.y}, 0, 1)`; 
+                else if (category === 'months') clickFn = `calJumpToDate(${item.y}, ${item.m}, 1)`; 
+                else if (category === 'days') clickFn = `calJumpToDate(${item.y}, ${item.m}, ${item.d})`; 
+                else if (category === 'streaks') clickFn = `calJumpToDate(${item.y}, ${item.m}, ${item.d})`; 
+                else if (category === 'weeks') clickFn = `calJumpToDate(${item.y}, ${item.m}, ${item.days[0] || 1})`;
+                
+                return `<div style="display:flex; justify-content:space-between; align-items:center; padding:6px 0; border-bottom:1px solid rgba(255,255,255,0.05); font-size:12px;"><div style="display:flex; align-items:center; gap:6px; overflow:hidden;"><span style="color:var(--accent); font-weight:bold; width:20px; text-align:right; flex-shrink:0;">${rank}.</span><span class="lb-clickable" style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis; transition:0.2s;" title="${title.replace(/"/g, '&quot;')}" onclick="${clickFn}">${title}</span></div><div style="color:${color}; font-weight:bold; flex-shrink:0; margin-left:8px;">${val.toLocaleString()}${unit}</div></div>`;
+            }).join('');
+        }
+        
+        let prevBtn = $(`cal-lb-${category}-prev`), nextBtn = $(`cal-lb-${category}-next`);
+        if (prevBtn) prevBtn.style.opacity = page === 0 ? '0.3' : '1';
+        if (nextBtn) nextBtn.style.opacity = page >= Math.ceil(arr.length / 10) - 1 || arr.length === 0 ? '0.3' : '1';
+    }
+
+</script>
+</body>
+</html>
