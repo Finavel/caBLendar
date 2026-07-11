@@ -289,7 +289,7 @@
 
         .workspace { padding: 24px; max-width: 1600px; margin: 0 auto; }
 
-        /* Stats Banner */
+        /* Stats Banner - Spaced Out on Desktop */
         .monthly-stats-banner {
             display: flex;
             flex-wrap: wrap;
@@ -742,7 +742,6 @@
     let calMonthlyChartInstance = null;
     let calSearchTimeout;
     
-    // Minimal status setting to avoid persistent UI spam
     const calSetStatus = (msg) => { $('cal-status-message').innerText = msg; };
     const calSleep = (ms) => new Promise(r => setTimeout(r, ms));
 
@@ -1369,6 +1368,25 @@
             if (!entry.media) return;
             if (entry.startedAt && entry.startedAt.year && entry.startedAt.month && entry.startedAt.day) {
                 globalStartDates[entry.media.id] = entry.startedAt;
+                
+                // Natively force the entry on the starting day if it's within this month
+                if (entry.startedAt.year === year && entry.startedAt.month === month + 1) {
+                    const sDay = entry.startedAt.day;
+                    if (sDay && !data[sDay].isFuture) {
+                        if (!data[sDay].entries[entry.media.id]) {
+                            data[sDay].entries[entry.media.id] = {
+                                id: entry.media.id, type: entry.media.type, title: entry.media.title.english || entry.media.title.userPreferred,
+                                coverUrl: entry.media.coverImage.large, chaptersRead: 0, isStarted: true, isCompleted: false,
+                                maxProgress: 0, totalSeriesChapters: (entry.media.type === 'ANIME' ? entry.media.episodes : entry.media.chapters) || 0,
+                                officialSameDay: (entry.startedAt?.year === entry.completedAt?.year && entry.startedAt?.month === entry.completedAt?.month && entry.startedAt?.day === entry.completedAt?.day),
+                                officialStartDay: true, isReread: false
+                            };
+                        } else {
+                            data[sDay].entries[entry.media.id].isStarted = true;
+                            data[sDay].entries[entry.media.id].officialStartDay = true;
+                        }
+                    }
+                }
             }
         });
         
@@ -1389,7 +1407,7 @@
                 }
                 stateTracker[mId] = { 
                     lastProgress: -1, 
-                    hasSeenExplicitProgress: false,
+                    hasBridgedFromOne: false,
                     wasStartedThisMonth: startedThisMonth,
                     chaptersLoggedThisMonth: 0
                 };
@@ -1413,13 +1431,7 @@
             }
             if (statusStr.includes('completed')) dayEntry.isCompleted = true;
             
-            if (globalStartDates[mId] && globalStartDates[mId].year === year && globalStartDates[mId].month === month + 1 && globalStartDates[mId].day === day) {
-                dayEntry.isStarted = true;
-                dayEntry.officialStartDay = true;
-                stateTracker[mId].wasStartedThisMonth = true;
-            }
-            
-            let isGenuinelyNew = stateTracker[mId].wasStartedThisMonth && !stateTracker[mId].hasSeenExplicitProgress;
+            let isFirstSignificantProgress = stateTracker[mId].wasStartedThisMonth && !stateTracker[mId].hasBridgedFromOne;
             
             let chsAdded = 0, currentProgress = -1;
             let rangeMatch = progressStr.match(/(\d+)\s*-\s*(\d+)/), singleMatch = progressStr.match(/^(\d+)$/);
@@ -1429,41 +1441,54 @@
                 let endCh = parseInt(rangeMatch[2]);
                 currentProgress = endCh; 
                 
-                if (isGenuinelyNew && currentProgress > 0) {
+                if (isFirstSignificantProgress && currentProgress > 1) {
                     chsAdded = currentProgress; 
+                    stateTracker[mId].hasBridgedFromOne = true;
                 } else if (stateTracker[mId].lastProgress !== -1 && currentProgress > stateTracker[mId].lastProgress) {
                     chsAdded = currentProgress - stateTracker[mId].lastProgress;
                 } else {
                     chsAdded = endCh - startCh + 1; 
+                    if (chsAdded <= 0) chsAdded = 1;
                 }
             }
             else if (singleMatch) { 
                 currentProgress = parseInt(singleMatch[1]); 
-                if (isGenuinelyNew && currentProgress > 0) {
+                if (isFirstSignificantProgress && currentProgress > 1) {
                     chsAdded = currentProgress;
+                    stateTracker[mId].hasBridgedFromOne = true;
                 } else if (stateTracker[mId].lastProgress !== -1 && currentProgress > stateTracker[mId].lastProgress) { 
                     chsAdded = currentProgress - stateTracker[mId].lastProgress; 
                 } else { 
-                    chsAdded = 1; 
+                    if (currentProgress === 1 && stateTracker[mId].wasStartedThisMonth && !stateTracker[mId].hasBridgedFromOne) {
+                        chsAdded = 0;
+                    } else {
+                        chsAdded = 1; 
+                    }
                 } 
             }
             else if (progressStr === "") { 
                 let txtSingle = statusStr.match(/(?:chapter|episode)s?\s+(\d+)/i); 
                 if (txtSingle) { 
                     currentProgress = parseInt(txtSingle[1]); 
-                    if (isGenuinelyNew && currentProgress > 0) {
+                    if (isFirstSignificantProgress && currentProgress > 1) {
                         chsAdded = currentProgress;
+                        stateTracker[mId].hasBridgedFromOne = true;
                     } else if (stateTracker[mId].lastProgress !== -1 && currentProgress > stateTracker[mId].lastProgress) {
                         chsAdded = currentProgress - stateTracker[mId].lastProgress;
                     } else {
-                        chsAdded = 1;
+                        if (currentProgress === 1 && stateTracker[mId].wasStartedThisMonth && !stateTracker[mId].hasBridgedFromOne) {
+                            chsAdded = 0;
+                        } else {
+                            chsAdded = 1; 
+                        }
                     }
                 } else if (statusStr.includes('completed')) {
                     let total = dayEntry.totalSeriesChapters || 0;
                     if (total > 0) {
                         currentProgress = total;
-                        if (isGenuinelyNew) {
+                        if (isFirstSignificantProgress) {
                             chsAdded = total;
+                            stateTracker[mId].hasBridgedFromOne = true;
                         } else if (stateTracker[mId].lastProgress !== -1 && total >= stateTracker[mId].lastProgress) {
                             chsAdded = total - stateTracker[mId].lastProgress;
                         } else if (stateTracker[mId].wasStartedThisMonth) {
@@ -1476,18 +1501,13 @@
                 }
             }
 
-            // The core fix: If it's the start date and the progress is functionally just 1, 
-            // suppress it to allow the next day's jump to bridge the gap cleanly from 1 to X.
-            if (isGenuinelyNew && currentProgress === 1) {
-                chsAdded = 0;
-                currentProgress = -1;
-            }
-
             dayEntry.maxProgress = Math.max(dayEntry.maxProgress, currentProgress); 
             dayEntry.chaptersRead += chsAdded;
             
-            if (currentProgress > 1 || (currentProgress === 1 && !isGenuinelyNew)) {
-                stateTracker[mId].hasSeenExplicitProgress = true;
+            if (currentProgress > 1) {
+                stateTracker[mId].hasBridgedFromOne = true;
+            }
+            if (currentProgress !== -1) {
                 stateTracker[mId].lastProgress = currentProgress;
             }
             stateTracker[mId].chaptersLoggedThisMonth += chsAdded;
@@ -1531,6 +1551,8 @@
             syncBtn.innerText = "Syncing..."; syncBtn.disabled = true; 
             if(syncBtnMobile) { syncBtnMobile.innerText = "Syncing..."; syncBtnMobile.disabled = true; }
             
+            calSetStatus(`Fetching user profile...`); await calSleep(50);
+            
             const currentCacheKey = `${calCurrentYear}_${calCurrentMonth}`; 
             const userData = await calGetUserData(username); 
             
@@ -1538,12 +1560,14 @@
             let startOfFetch = Math.floor(new Date(calCurrentYear, calCurrentMonth, 1).getTime() / 1000);
             const currentUnix = Math.floor(calRealDate.getTime() / 1000);
             
+            // Constantly use Delta Sync if cache has everything
             let isDelta = false;
             if (cached && cached.lastSyncUnix && cached.rawActivities && cached.officialDates) {
                 startOfFetch = cached.lastSyncUnix;
                 isDelta = true;
             }
 
+            calSetStatus(isDelta ? `Scanning for new activity...` : `Scanning activity feed...`); await calSleep(50);
             const rawActivities = await calFetchMonthActivities(userData.id, calCurrentYear, calCurrentMonth, startOfFetch);
             
             let combinedActivities = [];
@@ -1558,6 +1582,7 @@
                 const uniqueMediaIds = [...new Set(rawActivities.map(act => act.media.id))];
                 let newOfficialDates = [];
                 if (uniqueMediaIds.length > 0) {
+                    calSetStatus(`Pulling official dates for ${uniqueMediaIds.length} new titles...`); await calSleep(50);
                     newOfficialDates = await calFetchOfficialListDates(userData.id, uniqueMediaIds);
                 }
                 
@@ -1569,10 +1594,12 @@
                 combinedActivities = rawActivities;
                 const uniqueMediaIds = [...new Set(rawActivities.map(act => act.media.id))]; 
                 if (uniqueMediaIds.length > 0) {
+                    calSetStatus(`Pulling official dates for ${uniqueMediaIds.length} titles...`); await calSleep(50);
                     combinedOfficialDates = await calFetchOfficialListDates(userData.id, uniqueMediaIds); 
                 }
             }
             
+            calSetStatus(`Crunching statistics...`); await calSleep(50);
             const processed = calProcessCalendarData(combinedActivities, combinedOfficialDates, calCurrentYear, calCurrentMonth);
             
             calGlobalCache[currentCacheKey] = { 
@@ -1590,6 +1617,7 @@
             calRenderUI(calGlobalCache[currentCacheKey]); 
             calSetStatus("");
         } catch (err) { 
+            calSetStatus(""); 
             alert(`Error: ${err.message}\n\nPlease check your username.`); 
         } finally { 
             syncBtn.innerText = "Sync"; syncBtn.disabled = false; 
@@ -1726,7 +1754,7 @@
 
                 if (e.chaptersRead === 0) {
                     if (e.isStarted && !e.isCompleted) {
-                        mainLabel = `<em style="cursor:text; font-size: 11px;" title="Series started">Series started</em>`;
+                        mainLabel = `<em style="cursor:text; font-size: 11px;" title="Starting Date">Starting Date</em>`;
                     } else if (e.isCompleted) {
                         mainLabel = `<em style="cursor:text; font-size: 11px;" title="Completed">Completed</em>`;
                     } else {
@@ -1780,7 +1808,6 @@
                     
                     ${firstEntryHtml}
                     ${restEntriesHtml ? `<div class="entries-dropdown">${restEntriesHtml}</div>` : ''}
-                    ${(!hasEntries && !dayData.isFuture) ? `<div class="empty-state-text show">Nothing planned</div>` : ''}
                 </div>
             `;
             
