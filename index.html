@@ -289,7 +289,7 @@
 
         .workspace { padding: 24px; max-width: 1600px; margin: 0 auto; }
 
-        /* Stats Banner - Spaced Out on Desktop */
+        /* Stats Banner */
         .monthly-stats-banner {
             display: flex;
             flex-wrap: wrap;
@@ -308,6 +308,8 @@
         .stat-value.titles, .stat-value.alltime { color: #fff; }
         .stat-value.started { color: #69f0ae; }
         .stat-value.finished { color: #b39ddb; }
+        .stat-value.clickable { cursor: pointer; transition: opacity .2s ease; }
+        .stat-value.clickable:hover { opacity: 0.6; }
         .stat-label { font-size: .65rem; text-transform: uppercase; letter-spacing: .5px; margin-top: 2px; color: var(--text-muted); }
         .stats-divider { width: 2px; height: 30px; background: var(--glass-border); border-radius: 2px; margin: 0 8px; }
 
@@ -391,7 +393,6 @@
         .cal-entry-cover-wrapper { position: relative; flex-shrink: 0; display: flex; }
         .cal-entry-cover { width: 50px; height: 70px; object-fit: cover; border-radius: 6px; }
         
-        /* Updated Final Star Placement */
         .cal-heart-icon { 
             position: absolute; 
             top: -4px; 
@@ -413,6 +414,48 @@
         .cal-entry-chapter.reread em { color: #b39ddb!important; }
 
         .empty-state-text { display: none; color: var(--text-muted); font-size: 0.9rem; align-self: flex-start; padding-top: 6px; }
+
+        /* Unified Desktop Grid & Header Layout for Leaderboard */
+        .unified-lb-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 16px;
+            margin-top: 12px;
+        }
+        .unified-lb-header {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 16px;
+            text-transform: uppercase;
+            font-size: 11px;
+            letter-spacing: 1px;
+            color: var(--text-muted);
+            font-weight: bold;
+            border-bottom: 1px solid var(--glass-border);
+            padding-bottom: 8px;
+            margin-bottom: 8px;
+            text-align: center;
+        }
+        .unified-lb-column {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            max-height: 50vh;
+            overflow-y: auto;
+            padding-right: 4px;
+        }
+        .unified-lb-column::-webkit-scrollbar { width: 4px; }
+        .unified-lb-column::-webkit-scrollbar-thumb { background: var(--glass-border); border-radius: 4px; }
+
+        .lb-mini-card {
+            background: rgba(0,0,0,0.2);
+            border: 1px solid var(--glass-border);
+            padding: 6px;
+            border-radius: 6px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
 
         /* Charts */
         .cal-chart-container {
@@ -526,6 +569,9 @@
             #cal-adv-modal { grid-template-columns: 1fr; }
             #cal-adv-modal > div { flex-direction: column; }
             #cal-lb-grid-container { grid-template-columns: 1fr !important; }
+            
+            .unified-lb-grid { grid-template-columns: 1fr; gap: 24px; }
+            .unified-lb-header { display: none; }
         }
     </style>
 </head>
@@ -592,10 +638,11 @@
     <div id="cal-status-message" style="text-align:center; color:var(--accent); font-size:12px; font-weight:bold; height:16px; margin-bottom:10px;"></div>
     
     <div class="monthly-stats-banner glass">
-        <div class="stat-item"><div class="stat-value chapters" id="cal-total-chapters">0</div><div class="stat-label">Chapters</div></div>
-        <div class="stat-item"><div class="stat-value titles" id="cal-total-titles">0</div><div class="stat-label">Titles Read</div></div>
-        <div class="stat-item"><div class="stat-value started" id="cal-total-started">0</div><div class="stat-label">Started</div></div>
-        <div class="stat-item"><div class="stat-value finished" id="cal-total-finished">0</div><div class="stat-label">Finished</div></div>
+        <!-- Interactive Leaderboard Buttons -->
+        <div class="stat-item"><div class="stat-value chapters clickable" id="cal-total-chapters" onclick="calTriggerLeaderboard('chapters')">0</div><div class="stat-label">Chapters</div></div>
+        <div class="stat-item"><div class="stat-value titles clickable" id="cal-total-titles" onclick="calTriggerLeaderboard('titles')">0</div><div class="stat-label">Titles Read</div></div>
+        <div class="stat-item"><div class="stat-value started clickable" id="cal-total-started" onclick="calTriggerLeaderboard('started')">0</div><div class="stat-label">Started</div></div>
+        <div class="stat-item"><div class="stat-value finished clickable" id="cal-total-finished" onclick="calTriggerLeaderboard('finished')">0</div><div class="stat-label">Finished</div></div>
         <div class="stats-divider"></div>
         <div class="stat-item"><div class="stat-value alltime" id="cal-alltime-chapters">-</div><div class="stat-label">Total Chs</div></div>
         <div class="stat-item"><div class="stat-value alltime" id="cal-alltime-titles">-</div><div class="stat-label">Total Titles</div></div>
@@ -610,6 +657,18 @@
     </div>
     <div class="cal-chart-container glass" style="margin-bottom:40px;">
         <canvas id="calMonthlyChart"></canvas>
+    </div>
+</div>
+
+<!-- Unified Desktop/Mobile Monthly Insights Popup Layout -->
+<div class="modal-overlay" id="cal-monthly-lb-overlay" onclick="calCloseMonthlyLb()"></div>
+<div class="tier-modal glass" id="cal-monthly-lb-modal" style="width: 850px; max-width: 95vw; max-height: 85vh;">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+        <span id="cal-monthly-lb-title" style="font-size:18px; font-weight:800; color:var(--highlight); line-height: 1.2;">Monthly Insights Dashboard</span>
+        <button class="cal-nav-btn" style="background:rgba(0,0,0,0.15); border-radius:8px; padding:6px 12px;" onclick="calCloseMonthlyLb()">✕</button>
+    </div>
+    <div id="cal-monthly-lb-content">
+        <!-- Populated dynamically -->
     </div>
 </div>
 
@@ -1191,6 +1250,108 @@
         return allEntries;
     }
 
+    window.calTriggerLeaderboard = function(clickedType) {
+        const cacheKey = `${calCurrentYear}_${calCurrentMonth}`;
+        const data = calGlobalCache[cacheKey];
+        if (!data || !data.processed) return;
+
+        let seriesMap = {};
+        for (let day in data.processed.days) {
+            let dData = data.processed.days[day];
+            if (!dData.entriesList) continue;
+            dData.entriesList.forEach(e => {
+                if (e.type === 'ANIME') return;
+                if (!seriesMap[e.id]) {
+                    seriesMap[e.id] = {
+                        id: e.id, title: e.title, coverUrl: e.coverUrl,
+                        chapters: 0, startedDate: null, finishedDate: null
+                    };
+                }
+                seriesMap[e.id].chapters += e.chaptersRead;
+                if (e.isStarted && !seriesMap[e.id].startedDate) {
+                    seriesMap[e.id].startedDate = `${calMonthNames[calCurrentMonth].substring(0,3)} ${day}`;
+                }
+                if (e.isCompleted && !seriesMap[e.id].finishedDate) {
+                    seriesMap[e.id].finishedDate = `${calMonthNames[calCurrentMonth].substring(0,3)} ${day}`;
+                }
+            });
+        }
+
+        const list = Object.values(seriesMap);
+        const isMobile = window.innerWidth <= 768;
+        const targetContainer = $('cal-monthly-lb-content');
+        targetContainer.innerHTML = '';
+
+        if (isMobile) {
+            let filteredList = [];
+            let headerText = "";
+            let accentColor = "";
+
+            if (clickedType === 'chapters' || clickedType === 'titles') {
+                filteredList = list.filter(s => s.chapters > 0).sort((a,b) => b.chapters - a.chapters);
+                headerText = "Ranked Book Logs"; accentColor = "#70b5f9";
+            } else if (clickedType === 'started') {
+                filteredList = list.filter(s => s.startedDate).sort((a,b) => b.chapters - a.chapters);
+                headerText = "Started This Month"; accentColor = "#69f0ae";
+            } else if (clickedType === 'finished') {
+                filteredList = list.filter(s => s.finishedDate).sort((a,b) => b.chapters - a.chapters);
+                headerText = "Finished This Month"; accentColor = "#b39ddb";
+            }
+
+            $('cal-monthly-lb-title').innerText = headerText;
+            targetContainer.innerHTML = `<div class="unified-lb-column" style="max-height: 70vh;">${calGenerateMiniRows(filteredList, clickedType, accentColor)}</div>`;
+        } else {
+            $('cal-monthly-lb-title').innerText = `${calMonthNames[calCurrentMonth]} ${calCurrentYear} Matrix Leaderboard`;
+            
+            const chaptersSorted = [...list].filter(s => s.chapters > 0).sort((a,b) => b.chapters - a.chapters);
+            const startedSorted = [...list].filter(s => s.startedDate).sort((a,b) => b.chapters - a.chapters);
+            const finishedSorted = [...list].filter(s => s.finishedDate).sort((a,b) => b.chapters - a.chapters);
+
+            targetContainer.innerHTML = `
+                <div class="unified-lb-header">
+                    <div style="color: #70b5f9;">Chapters</div>
+                    <div style="color: #69f0ae;">Started</div>
+                    <div style="color: #b39ddb;">Finished</div>
+                </div>
+                <div class="unified-lb-grid">
+                    <div class="unified-lb-column">${calGenerateMiniRows(chaptersSorted, 'chapters', '#70b5f9')}</div>
+                    <div class="unified-lb-column">${calGenerateMiniRows(startedSorted, 'started', '#69f0ae')}</div>
+                    <div class="unified-lb-column">${calGenerateMiniRows(finishedSorted, 'finished', '#b39ddb')}</div>
+                </div>
+            `;
+        }
+
+        $('cal-monthly-lb-overlay').style.display = 'block';
+        $('cal-monthly-lb-modal').style.display = 'block';
+    };
+
+    function calGenerateMiniRows(items, mode, metricColor) {
+        if (!items || items.length === 0) return '<div style="text-align:center; color:var(--text-muted); padding:20px; font-size:12px;">No activity logged</div>';
+        return items.map((s, idx) => {
+            let rightLabel = "";
+            if (mode === 'chapters' || mode === 'titles') rightLabel = `+${s.chapters}`;
+            else if (mode === 'started') rightLabel = s.startedDate || "Tracked";
+            else if (mode === 'finished') rightLabel = s.finishedDate || "Tracked";
+
+            return `
+                <div class="lb-mini-card">
+                    <div style="font-size:11px; font-weight:800; color:var(--text-muted); width:18px; text-align:right;">${idx + 1}</div>
+                    <img src="${s.coverUrl}" style="width:32px; height:46px; object-fit:cover; border-radius:4px;">
+                    <div style="flex:1; min-width:0;">
+                        <div style="font-size:12px; font-weight:600; color:var(--highlight); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${s.title}</div>
+                        ${(mode!=='chapters' && mode!=='titles') ? `<div style="font-size:10px; color:var(--text-muted);">Read ${s.chapters} Chs</div>` : ''}
+                    </div>
+                    <div style="font-size:12px; font-weight:700; color:${metricColor}; padding-left:4px; text-align:right;">${rightLabel}</div>
+                </div>
+            `;
+        }).join('');
+    }
+
+    window.calCloseMonthlyLb = function() {
+        $('cal-monthly-lb-overlay').style.display = 'none';
+        $('cal-monthly-lb-modal').style.display = 'none';
+    };
+
     function calProcessCalendarData(activities, officialDates, year, month) {
         const daysInMonth = new Date(year, month + 1, 0).getDate();
         const data = {}; 
@@ -1203,35 +1364,11 @@
             }
         }
         
+        let globalStartDates = {};
         officialDates.forEach(entry => {
             if (!entry.media) return;
-            const mId = entry.media.id, type = entry.media.type, title = entry.media.title.english || entry.media.title.userPreferred, coverUrl = entry.media.coverImage.large;
-            const totalSeriesChapters = (type === 'ANIME' ? entry.media.episodes : entry.media.chapters) || entry.progress || 0;
-            const isSameDay = entry.startedAt?.year === entry.completedAt?.year && entry.startedAt?.month === entry.completedAt?.month && entry.startedAt?.day === entry.completedAt?.day && entry.startedAt?.day != null;
-            
-            const createEntryIfMissing = (day) => { 
-                if (!data[day].entries[mId]) { 
-                    data[day].entries[mId] = { id: mId, type, title, coverUrl, chaptersRead: 0, isStarted: false, isCompleted: false, maxProgress: 0, totalSeriesChapters, officialSameDay: isSameDay, officialStartDay: false, isReread: false }; 
-                } 
-            };
-            
-            if (entry.startedAt && entry.startedAt.year === year && entry.startedAt.month === month + 1 && entry.startedAt.day) {
-                const day = entry.startedAt.day;
-                if (!data[day].isFuture) { 
-                    createEntryIfMissing(day); 
-                    data[day].entries[mId].isStarted = true; 
-                    data[day].entries[mId].officialSameDay = isSameDay; 
-                    data[day].entries[mId].officialStartDay = true;
-                }
-            }
-            if (entry.completedAt && entry.completedAt.year === year && entry.completedAt.month === month + 1 && entry.completedAt.day) {
-                const day = entry.completedAt.day;
-                if (!data[day].isFuture) { 
-                    createEntryIfMissing(day); 
-                    data[day].entries[mId].isCompleted = true; 
-                    data[day].entries[mId].officialSameDay = isSameDay; 
-                    data[day].entries[mId].totalSeriesChapters = Math.max(data[day].entries[mId].totalSeriesChapters, totalSeriesChapters); 
-                }
+            if (entry.startedAt && entry.startedAt.year && entry.startedAt.month && entry.startedAt.day) {
+                globalStartDates[entry.media.id] = entry.startedAt;
             }
         });
         
@@ -1241,13 +1378,30 @@
         chronologicalActs.forEach(act => {
             const day = new Date(act.createdAt * 1000).getDate();
             if (!data[day] || data[day].isFuture) return;
-            const mId = act.media.id, type = act.media.type, title = act.media.title.english || act.media.title.userPreferred, progressStr = act.progress ? String(act.progress) : "", statusStr = (act.status || "").toLowerCase();
+            
+            const mId = act.media.id, type = act.media.type, title = act.media.title.english || act.media.title.userPreferred;
+            const progressStr = act.progress ? String(act.progress) : "", statusStr = (act.status || "").toLowerCase();
             
             if (!stateTracker[mId]) {
-                stateTracker[mId] = { lastProgress: -1, chaptersLoggedThisMonth: 0, wasStartedThisMonth: false, hasSeenExplicitProgress: false };
+                let startedThisMonth = false;
+                if (globalStartDates[mId] && globalStartDates[mId].year === year && globalStartDates[mId].month === month + 1) {
+                    startedThisMonth = true;
+                }
+                stateTracker[mId] = { 
+                    lastProgress: -1, 
+                    hasSeenExplicitProgress: false,
+                    wasStartedThisMonth: startedThisMonth,
+                    chaptersLoggedThisMonth: 0
+                };
             }
+            
             if (!data[day].entries[mId]) { 
-                data[day].entries[mId] = { id: mId, type, title, coverUrl: act.media.coverImage.large, chaptersRead: 0, isStarted: false, isCompleted: false, maxProgress: 0, totalSeriesChapters: (type === 'ANIME' ? act.media.episodes : act.media.chapters) || 0, officialSameDay: false, officialStartDay: false, isReread: false, activityId: act.id }; 
+                data[day].entries[mId] = { 
+                    id: mId, type, title, coverUrl: act.media.coverImage.large, 
+                    chaptersRead: 0, isStarted: false, isCompleted: false, 
+                    maxProgress: 0, totalSeriesChapters: (type === 'ANIME' ? act.media.episodes : act.media.chapters) || 0, 
+                    activityId: act.id, officialStartDay: false 
+                }; 
             }
             
             const dayEntry = data[day].entries[mId];
@@ -1259,19 +1413,28 @@
             }
             if (statusStr.includes('completed')) dayEntry.isCompleted = true;
             
-            let isGenuinelyNew = (stateTracker[mId].wasStartedThisMonth || dayEntry.officialStartDay) && !stateTracker[mId].hasSeenExplicitProgress;
+            if (globalStartDates[mId] && globalStartDates[mId].year === year && globalStartDates[mId].month === month + 1 && globalStartDates[mId].day === day) {
+                dayEntry.isStarted = true;
+                dayEntry.officialStartDay = true;
+                stateTracker[mId].wasStartedThisMonth = true;
+            }
+            
+            let isGenuinelyNew = stateTracker[mId].wasStartedThisMonth && !stateTracker[mId].hasSeenExplicitProgress;
             
             let chsAdded = 0, currentProgress = -1;
             let rangeMatch = progressStr.match(/(\d+)\s*-\s*(\d+)/), singleMatch = progressStr.match(/^(\d+)$/);
             
             if (rangeMatch) { 
-                currentProgress = parseInt(rangeMatch[2]); 
+                let startCh = parseInt(rangeMatch[1]);
+                let endCh = parseInt(rangeMatch[2]);
+                currentProgress = endCh; 
+                
                 if (isGenuinelyNew && currentProgress > 0) {
                     chsAdded = currentProgress; 
                 } else if (stateTracker[mId].lastProgress !== -1 && currentProgress > stateTracker[mId].lastProgress) {
                     chsAdded = currentProgress - stateTracker[mId].lastProgress;
                 } else {
-                    chsAdded = parseInt(rangeMatch[2]) - parseInt(rangeMatch[1]) + 1; 
+                    chsAdded = endCh - startCh + 1; 
                 }
             }
             else if (singleMatch) { 
@@ -1313,30 +1476,33 @@
                 }
             }
 
-            if (dayEntry.isStarted && currentProgress > 0 && !stateTracker[mId].hasSeenExplicitProgress) {
-                chsAdded = Math.max(chsAdded, currentProgress);
+            // The core fix: If it's the start date and the progress is functionally just 1, 
+            // suppress it to allow the next day's jump to bridge the gap cleanly from 1 to X.
+            if (isGenuinelyNew && currentProgress === 1) {
+                chsAdded = 0;
+                currentProgress = -1;
             }
-            
+
             dayEntry.maxProgress = Math.max(dayEntry.maxProgress, currentProgress); 
             dayEntry.chaptersRead += chsAdded;
             
-            if (currentProgress > 0) {
+            if (currentProgress > 1 || (currentProgress === 1 && !isGenuinelyNew)) {
                 stateTracker[mId].hasSeenExplicitProgress = true;
+                stateTracker[mId].lastProgress = currentProgress;
             }
-            if (currentProgress !== -1) stateTracker[mId].lastProgress = currentProgress;
             stateTracker[mId].chaptersLoggedThisMonth += chsAdded;
         });
         
-        let mangaMonthlyTotal = {};
         for (let day = 1; day <= daysInMonth; day++) {
             if (data[day].isFuture) continue;
             let titlesToday = Object.values(data[day].entries); 
             let dChapters = 0, dStarted = 0, dFinished = 0;
             
             titlesToday.forEach(e => {
-                if (!mangaMonthlyTotal[e.id]) mangaMonthlyTotal[e.id] = 0;
-                
-                mangaMonthlyTotal[e.id] += e.chaptersRead;
+                if (e.chaptersRead === 0 && e.isStarted && e.isCompleted && e.totalSeriesChapters > 0 && e.maxProgress === 0) {
+                    e.chaptersRead = e.totalSeriesChapters;
+                    e.maxProgress = e.totalSeriesChapters;
+                }
                 
                 if (e.type !== 'ANIME') {
                     dChapters += e.chaptersRead; 
@@ -1365,8 +1531,6 @@
             syncBtn.innerText = "Syncing..."; syncBtn.disabled = true; 
             if(syncBtnMobile) { syncBtnMobile.innerText = "Syncing..."; syncBtnMobile.disabled = true; }
             
-            calSetStatus(`Fetching user profile...`); await calSleep(50);
-            
             const currentCacheKey = `${calCurrentYear}_${calCurrentMonth}`; 
             const userData = await calGetUserData(username); 
             
@@ -1380,7 +1544,6 @@
                 isDelta = true;
             }
 
-            calSetStatus(isDelta ? `Scanning for new activity...` : `Scanning activity feed...`); await calSleep(50);
             const rawActivities = await calFetchMonthActivities(userData.id, calCurrentYear, calCurrentMonth, startOfFetch);
             
             let combinedActivities = [];
@@ -1395,7 +1558,6 @@
                 const uniqueMediaIds = [...new Set(rawActivities.map(act => act.media.id))];
                 let newOfficialDates = [];
                 if (uniqueMediaIds.length > 0) {
-                    calSetStatus(`Pulling official dates for ${uniqueMediaIds.length} new titles...`); await calSleep(50);
                     newOfficialDates = await calFetchOfficialListDates(userData.id, uniqueMediaIds);
                 }
                 
@@ -1407,12 +1569,10 @@
                 combinedActivities = rawActivities;
                 const uniqueMediaIds = [...new Set(rawActivities.map(act => act.media.id))]; 
                 if (uniqueMediaIds.length > 0) {
-                    calSetStatus(`Pulling official dates for ${uniqueMediaIds.length} titles...`); await calSleep(50);
                     combinedOfficialDates = await calFetchOfficialListDates(userData.id, uniqueMediaIds); 
                 }
             }
             
-            calSetStatus(`Crunching statistics...`); await calSleep(50);
             const processed = calProcessCalendarData(combinedActivities, combinedOfficialDates, calCurrentYear, calCurrentMonth);
             
             calGlobalCache[currentCacheKey] = { 
@@ -1430,7 +1590,6 @@
             calRenderUI(calGlobalCache[currentCacheKey]); 
             calSetStatus("");
         } catch (err) { 
-            calSetStatus(""); 
             alert(`Error: ${err.message}\n\nPlease check your username.`); 
         } finally { 
             syncBtn.innerText = "Sync"; syncBtn.disabled = false; 
@@ -1513,6 +1672,19 @@
             document.getElementById('cal-alltime-titles').innerText = "-"; 
             calRenderTimelineChart(null); 
             if (calMonthlyChartInstance) calMonthlyChartInstance.destroy(); 
+            
+            for (let day = 1; day <= daysInMonth; day++) {
+                const dayDiv = document.createElement('div');
+                let classes = 'day-column glass empty';
+                if (calCurrentYear > calRealDate.getFullYear() || (calCurrentYear === calRealDate.getFullYear() && calCurrentMonth > calRealDate.getMonth()) || (calCurrentYear === calRealDate.getFullYear() && calCurrentMonth === calRealDate.getMonth() && day > calRealDate.getDate())) {
+                    classes += ' future';
+                }
+                dayDiv.className = classes; 
+                const dayOfWeekStr = calWeekdays[new Date(calCurrentYear, calCurrentMonth, day).getDay()];
+                dayDiv.innerHTML = `<div class="day-top-row"><span class="mobile-weekday">${dayOfWeekStr}</span><span class="date-number">${day}</span></div><div class="day-content-area"></div>`;
+                calendarEl.appendChild(dayDiv);
+            }
+            const styleBlock = document.createElement('style'); styleBlock.innerHTML = `@media(max-width:768px){.empty-grid-cell{display:none!important;}}`; calendarEl.appendChild(styleBlock);
             return;
         }
         
@@ -1554,7 +1726,7 @@
 
                 if (e.chaptersRead === 0) {
                     if (e.isStarted && !e.isCompleted) {
-                        mainLabel = `<em style="cursor:text; font-size: 11px;" title="Starting Date">Starting Date</em>`;
+                        mainLabel = `<em style="cursor:text; font-size: 11px;" title="Series started">Series started</em>`;
                     } else if (e.isCompleted) {
                         mainLabel = `<em style="cursor:text; font-size: 11px;" title="Completed">Completed</em>`;
                     } else {
@@ -1589,6 +1761,14 @@
                     <span class="date-number">${day}</span>
                     ${dayData.entriesList && dayData.entriesList.length > 1 ? `<div class="expand-icon">▼</div>` : ''}
                 </div>
+                
+                <div class="mobile-day-stats mobile-only">
+                    <span class="ch">${dayData.summary.chapters}</span>
+                    <span class="tt">${dayData.summary.titles}</span>
+                    <span class="st">${dayData.summary.started}</span>
+                    <span class="fn">${dayData.summary.finished}</span>
+                </div>
+                
                 <div class="day-content-area">
                     ${!dayData.isFuture && hasEntries ? `
                     <div class="day-stats-grid">
@@ -1602,13 +1782,6 @@
                     ${restEntriesHtml ? `<div class="entries-dropdown">${restEntriesHtml}</div>` : ''}
                     ${(!hasEntries && !dayData.isFuture) ? `<div class="empty-state-text show">Nothing planned</div>` : ''}
                 </div>
-                ${!dayData.isFuture && hasEntries ? `
-                <div class="mobile-day-stats mobile-only">
-                    <span class="ch">${dayData.summary.chapters}</span>
-                    <span class="tt">${dayData.summary.titles}</span>
-                    <span class="st">${dayData.summary.started}</span>
-                    <span class="fn">${dayData.summary.finished}</span>
-                </div>` : ''}
             `;
             
             dayDiv.innerHTML = html;
