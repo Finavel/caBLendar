@@ -1403,13 +1403,41 @@
             
             if (!stateTracker[mId]) {
                 let startedThisMonth = false;
+                let hasOfficialStartThisMonth = false;
+                
+                // Determine if a series started this month either via official dates or by checking database memory
                 if (globalStartDates[mId] && globalStartDates[mId].year === year && globalStartDates[mId].month === month + 1) {
                     startedThisMonth = true;
+                    if (globalStartDates[mId].day) hasOfficialStartThisMonth = true;
+                } else if (!globalStartDates[mId]) {
+                    // Check if it was ever read in a previous month; if not, it must be a new start
+                    let readBefore = false;
+                    let viewScore = year * 12 + month;
+                    for (let k in calGlobalCache) {
+                        if (!k.includes('_')) continue;
+                        let [y, m] = k.split('_').map(Number);
+                        if (y * 12 + m < viewScore) {
+                            if (calGlobalCache[k].processed && calGlobalCache[k].processed.days) {
+                                for (let d in calGlobalCache[k].processed.days) {
+                                    if (calGlobalCache[k].processed.days[d].entries && calGlobalCache[k].processed.days[d].entries[mId]) {
+                                        readBefore = true; break;
+                                    }
+                                }
+                            }
+                        }
+                        if (readBefore) break;
+                    }
+                    if (!readBefore) {
+                        startedThisMonth = true;
+                    }
                 }
+                
                 stateTracker[mId] = { 
                     lastProgress: -1, 
                     hasSeenExplicitProgress: false,
                     wasStartedThisMonth: startedThisMonth,
+                    hasOfficialStartThisMonth: hasOfficialStartThisMonth,
+                    hasInferredStart: false,
                     chaptersLoggedThisMonth: 0
                 };
             }
@@ -1426,11 +1454,19 @@
             const dayEntry = data[day].entries[mId];
             dayEntry.activityId = act.id;
             
+            // Log starts detected through API status strings
             if (statusStr.includes('plan') || statusStr.includes('start') || statusStr.includes('add')) {
                 stateTracker[mId].wasStartedThisMonth = true;
                 if (!statusStr.includes('plan')) {
                     dayEntry.isStarted = true;
+                    stateTracker[mId].hasInferredStart = true;
                 }
+            }
+            
+            // NEW: Enforce that unmapped new entries get marked as started on their first registered activity
+            if (stateTracker[mId].wasStartedThisMonth && !stateTracker[mId].hasOfficialStartThisMonth && !stateTracker[mId].hasInferredStart) {
+                dayEntry.isStarted = true;
+                stateTracker[mId].hasInferredStart = true;
             }
             
             if (statusStr.includes('completed')) dayEntry.isCompleted = true;
